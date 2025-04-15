@@ -1,5 +1,5 @@
-import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import type { Database } from "@/types/database.types"
 
 // Type definitions for notifications
 export interface Notification {
@@ -27,7 +27,7 @@ export async function getUserNotifications(
   offset = 0,
 ): Promise<{ data: Notification[] | null; error: any }> {
   try {
-    const supabase = createClientComponentClient()
+    const supabase = createClientComponentClient<Database>()
 
     const { data, error } = await supabase
       .from("notifications")
@@ -50,7 +50,7 @@ export async function getUserNotifications(
  */
 export async function markNotificationAsRead(notificationId: string): Promise<{ success: boolean; error: any }> {
   try {
-    const supabase = createClientComponentClient()
+    const supabase = createClientComponentClient<Database>()
 
     const { error } = await supabase.from("notifications").update({ read: true }).eq("id", notificationId)
 
@@ -68,7 +68,7 @@ export async function markNotificationAsRead(notificationId: string): Promise<{ 
  */
 export async function markAllNotificationsAsRead(userId: string): Promise<{ success: boolean; error: any }> {
   try {
-    const supabase = createClientComponentClient()
+    const supabase = createClientComponentClient<Database>()
 
     const { error } = await supabase
       .from("notifications")
@@ -90,7 +90,7 @@ export async function markAllNotificationsAsRead(userId: string): Promise<{ succ
  */
 export async function getUnreadNotificationCount(userId: string): Promise<{ count: number; error: any }> {
   try {
-    const supabase = createClientComponentClient()
+    const supabase = createClientComponentClient<Database>()
 
     const { count, error } = await supabase
       .from("notifications")
@@ -102,27 +102,5 @@ export async function getUnreadNotificationCount(userId: string): Promise<{ coun
   } catch (error) {
     console.error("Error counting unread notifications:", error)
     return { count: 0, error }
-  }
-}
-
-/**
- * Server-side function to get notifications
- * @param userId - The user ID to fetch notifications for
- * @returns Array of notifications
- */
-export async function getServerNotifications(userId: string): Promise<Notification[]> {
-  try {
-    const supabase = createServerSupabaseClient()
-
-    const { data } = await supabase
-      .from("notifications")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-
-    return data || []
-  } catch (error) {
-    console.error("Error fetching server notifications:", error)
-    return []
   }
 }
