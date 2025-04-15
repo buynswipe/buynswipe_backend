@@ -1,91 +1,128 @@
-import { createClient } from "@supabase/supabase-js"
+import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
-// Initialize Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// Type definitions for notifications
+export interface Notification {
+  id: string
+  user_id: string
+  title: string
+  message: string
+  type: string
+  read: boolean
+  created_at: string
+  link?: string
+  metadata?: Record<string, any>
+}
 
 /**
  * Get notifications for a specific user
  * @param userId - The user ID to fetch notifications for
- * @param limit - Optional limit for the number of notifications to fetch
+ * @param limit - Optional limit for pagination
  * @param offset - Optional offset for pagination
  * @returns Array of notifications
  */
-export async function getUserNotifications(userId: string, limit = 20, offset = 0) {
-  const { data, error } = await supabase
-    .from("notifications")
-    .select("*")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-    .range(offset, offset + limit - 1)
+export async function getUserNotifications(
+  userId: string,
+  limit = 20,
+  offset = 0,
+): Promise<{ data: Notification[] | null; error: any }> {
+  try {
+    const supabase = createClientComponentClient()
 
-  if (error) {
+    const { data, error } = await supabase
+      .from("notifications")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1)
+
+    return { data, error }
+  } catch (error) {
     console.error("Error fetching notifications:", error)
-    throw error
+    return { data: null, error }
   }
-
-  return data || []
 }
 
 /**
  * Mark a specific notification as read
  * @param notificationId - The ID of the notification to mark as read
- * @returns The updated notification
+ * @returns Success status and any error
  */
-export async function markNotificationAsRead(notificationId: string) {
-  const { data, error } = await supabase
-    .from("notifications")
-    .update({ read: true, read_at: new Date().toISOString() })
-    .eq("id", notificationId)
-    .select()
-    .single()
+export async function markNotificationAsRead(notificationId: string): Promise<{ success: boolean; error: any }> {
+  try {
+    const supabase = createClientComponentClient()
 
-  if (error) {
+    const { error } = await supabase.from("notifications").update({ read: true }).eq("id", notificationId)
+
+    return { success: !error, error }
+  } catch (error) {
     console.error("Error marking notification as read:", error)
-    throw error
+    return { success: false, error }
   }
-
-  return data
 }
 
 /**
  * Mark all notifications for a user as read
  * @param userId - The user ID to mark all notifications as read for
- * @returns The number of notifications updated
+ * @returns Success status and any error
  */
-export async function markAllNotificationsAsRead(userId: string) {
-  const { data, error } = await supabase
-    .from("notifications")
-    .update({ read: true, read_at: new Date().toISOString() })
-    .eq("user_id", userId)
-    .eq("read", false)
-    .select()
+export async function markAllNotificationsAsRead(userId: string): Promise<{ success: boolean; error: any }> {
+  try {
+    const supabase = createClientComponentClient()
 
-  if (error) {
+    const { error } = await supabase
+      .from("notifications")
+      .update({ read: true })
+      .eq("user_id", userId)
+      .eq("read", false)
+
+    return { success: !error, error }
+  } catch (error) {
     console.error("Error marking all notifications as read:", error)
-    throw error
+    return { success: false, error }
   }
-
-  return data?.length || 0
 }
 
 /**
  * Get the count of unread notifications for a user
  * @param userId - The user ID to count unread notifications for
- * @returns The count of unread notifications
+ * @returns Count of unread notifications
  */
-export async function getUnreadNotificationCount(userId: string) {
-  const { count, error } = await supabase
-    .from("notifications")
-    .select("*", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .eq("read", false)
+export async function getUnreadNotificationCount(userId: string): Promise<{ count: number; error: any }> {
+  try {
+    const supabase = createClientComponentClient()
 
-  if (error) {
+    const { count, error } = await supabase
+      .from("notifications")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("read", false)
+
+    return { count: count || 0, error }
+  } catch (error) {
     console.error("Error counting unread notifications:", error)
-    throw error
+    return { count: 0, error }
   }
+}
 
-  return count || 0
+/**
+ * Server-side function to get notifications
+ * @param userId - The user ID to fetch notifications for
+ * @returns Array of notifications
+ */
+export async function getServerNotifications(userId: string): Promise<Notification[]> {
+  try {
+    const supabase = createServerSupabaseClient()
+
+    const { data } = await supabase
+      .from("notifications")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+
+    return data || []
+  } catch (error) {
+    console.error("Error fetching server notifications:", error)
+    return []
+  }
 }
