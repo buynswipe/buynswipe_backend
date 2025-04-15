@@ -11,21 +11,13 @@ export interface Notification {
   read: boolean
   created_at: string
   link?: string
-  metadata?: Record<string, any>
+  data?: Record<string, any>
 }
 
 /**
  * Get notifications for a specific user
- * @param userId - The user ID to fetch notifications for
- * @param limit - Optional limit for pagination
- * @param offset - Optional offset for pagination
- * @returns Array of notifications
  */
-export async function getUserNotifications(
-  userId: string,
-  limit = 20,
-  offset = 0,
-): Promise<{ data: Notification[] | null; error: any }> {
+export async function getUserNotifications(userId: string, limit = 20, offset = 0) {
   try {
     const supabase = createClientComponentClient<Database>()
 
@@ -45,10 +37,8 @@ export async function getUserNotifications(
 
 /**
  * Mark a specific notification as read
- * @param notificationId - The ID of the notification to mark as read
- * @returns Success status and any error
  */
-export async function markNotificationAsRead(notificationId: string): Promise<{ success: boolean; error: any }> {
+export async function markNotificationAsRead(notificationId: string) {
   try {
     const supabase = createClientComponentClient<Database>()
 
@@ -63,10 +53,8 @@ export async function markNotificationAsRead(notificationId: string): Promise<{ 
 
 /**
  * Mark all notifications for a user as read
- * @param userId - The user ID to mark all notifications as read for
- * @returns Success status and any error
  */
-export async function markAllNotificationsAsRead(userId: string): Promise<{ success: boolean; error: any }> {
+export async function markAllNotificationsAsRead(userId: string) {
   try {
     const supabase = createClientComponentClient<Database>()
 
@@ -85,10 +73,8 @@ export async function markAllNotificationsAsRead(userId: string): Promise<{ succ
 
 /**
  * Get the count of unread notifications for a user
- * @param userId - The user ID to count unread notifications for
- * @returns Count of unread notifications
  */
-export async function getUnreadNotificationCount(userId: string): Promise<{ count: number; error: any }> {
+export async function getUnreadNotificationCount(userId: string) {
   try {
     const supabase = createClientComponentClient<Database>()
 
