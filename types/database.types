@@ -1,0 +1,129 @@
+export type UserRole = "admin" | "retailer" | "wholesaler" | "delivery_partner"
+
+export interface UserProfile {
+  id: string
+  created_at: string
+  email: string
+  role: UserRole
+  business_name: string
+  phone: string
+  address: string
+  city: string
+  pincode: string
+  is_approved: boolean
+  gst_number?: string | null
+  latitude?: number
+  longitude?: number
+}
+
+export interface Product {
+  id: string
+  created_at: string
+  wholesaler_id: string
+  name: string
+  description: string | null
+  category: string
+  price: number
+  stock_quantity: number
+  initial_quantity: number
+  image_url?: string | null
+}
+
+export interface Order {
+  id: string
+  created_at: string
+  retailer_id: string
+  wholesaler_id: string
+  status: "placed" | "confirmed" | "dispatched" | "delivered" | "rejected"
+  payment_method: "cod" | "upi"
+  payment_status: "pending" | "paid"
+  total_amount: number
+  notes?: string | null
+  estimated_delivery?: string | null
+  delivery_partner_id?: string | null
+  delivery_instructions?: string | null
+  payment_reference?: string | null
+}
+
+export interface OrderItem {
+  id: string
+  order_id: string
+  product_id: string
+  quantity: number
+  price: number
+}
+
+export interface Transaction {
+  id: string
+  created_at: string
+  order_id: string
+  amount: number
+  payment_method: "cod" | "upi"
+  status: "pending" | "completed" | "failed"
+  transaction_fee: number
+  payment_gateway?: string | null
+  gateway_transaction_id?: string | null
+  metadata?: any
+  external_reference?: string | null
+}
+
+export interface DeliveryPartner {
+  id: string
+  created_at: string
+  name: string
+  phone: string
+  email: string | null
+  vehicle_type: "bike" | "auto" | "van" | "truck"
+  vehicle_number: string
+  license_number: string | null
+  address: string
+  city: string
+  pincode: string
+  is_active: boolean
+  wholesaler_id?: string | null
+  user_id?: string | null
+  total_earnings?: number | null
+  pending_payout?: number | null
+  last_payout_date?: string | null
+  total_deliveries?: number | null
+  on_time_deliveries?: number | null
+  rating?: number | null
+}
+
+// Database type definition
+export type Database = {
+  public: {
+    Tables: {
+      profiles: {
+        Row: any
+        Insert: any
+        Update: any
+      }
+      products: {
+        Row: any
+        Insert: any
+        Update: any
+      }
+      orders: {
+        Row: any
+        Insert: any
+        Update: any
+      }
+      order_items: {
+        Row: any
+        Insert: any
+        Update: any
+      }
+      transactions: {
+        Row: any
+        Insert: any
+        Update: any
+      }
+      delivery_partners: {
+        Row: any
+        Insert: any
+        Update: any
+      }
+    }
+  }
+}
