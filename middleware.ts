@@ -62,8 +62,6 @@ export async function middleware(req: NextRequest) {
 
       // Handle role-based routing
       if (profile) {
-        console.log("User role:", profile.role, "Path:", path)
-
         // Root path redirects
         if (path === "/" || path === "/dashboard") {
           if (profile.role === "delivery_partner") {
@@ -85,20 +83,17 @@ export async function middleware(req: NextRequest) {
             const redirectUrl = new URL("/order-management", req.url)
             return NextResponse.redirect(redirectUrl)
           }
-
-          // Redirect wholesalers to wholesaler-dashboard if they try to access /dashboard/main
-          if (path === "/dashboard/main") {
-            const redirectUrl = new URL("/wholesaler-dashboard", req.url)
-            return NextResponse.redirect(redirectUrl)
-          }
         }
 
         if (profile.role === "retailer") {
           // Retailers should not access wholesaler-specific routes
-          if (path === "/order-management" || path === "/wholesaler-dashboard") {
+          if (path === "/order-management") {
             const redirectUrl = new URL("/orders", req.url)
             return NextResponse.redirect(redirectUrl)
           }
+
+          // Remove the redirect for wholesaler-dashboard for retailers
+          // This allows retailers to view the wholesaler dashboard
         }
 
         // Admin-specific routes

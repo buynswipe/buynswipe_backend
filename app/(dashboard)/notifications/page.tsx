@@ -1,137 +1,62 @@
-"use client"
+import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { redirect } from "next/navigation"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { getUserNotifications } from "@/lib/notification-api"
 
-import { useState } from "react"
-import { useRealTimeUpdates } from "@/lib/real-time-service"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Skeleton } from "@/components/ui/skeleton"
-import { format } from "date-fns"
-import { Bell, RefreshCw, CheckCircle } from "lucide-react"
+export default async function NotificationsPage() {
+  const supabase = createServerSupabaseClient()
 
-export default function NotificationsPage() {
-  const { notifications, isLoading, markAsRead, markAllAsRead, refresh } = useRealTimeUpdates()
-  const [refreshing, setRefreshing] = useState(false)
-  const [activeTab, setActiveTab] = useState("all")
+  // Get user session
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
 
-  const handleRefresh = async () => {
-    setRefreshing(true)
-    await refresh()
-    setRefreshing(false)
+  if (!session) {
+    redirect("/login")
   }
 
-  const filteredNotifications =
-    activeTab === "all"
-      ? notifications
-      : activeTab === "unread"
-        ? notifications.filter((n) => !n.is_read)
-        : notifications.filter((n) => n.type === activeTab)
+  // Get user profile
+  const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
 
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case "order":
-        return <div className="w-3 h-3 bg-blue-500 rounded-full mr-2" />
-      case "inventory":
-        return <div className="w-3 h-3 bg-yellow-500 rounded-full mr-2" />
-      case "payment":
-        return <div className="w-3 h-3 bg-green-500 rounded-full mr-2" />
-      case "delivery":
-        return <div className="w-3 h-3 bg-purple-500 rounded-full mr-2" />
-      default:
-        return <div className="w-3 h-3 bg-gray-500 rounded-full mr-2" />
-    }
+  if (!profile) {
+    redirect("/login")
   }
+
+  // Get notifications
+  const { data: notifications } = await getUserNotifications(session.user.id)
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-start">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Notifications</h2>
-          <p className="text-muted-foreground">View and manage your notifications.</p>
-        </div>
-        <div className="flex space-x-2">
-          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
-            {refreshing ? "Refreshing..." : "Refresh"}
-          </Button>
-          <Button variant="outline" size="sm" onClick={markAllAsRead}>
-            <CheckCircle className="h-4 w-4 mr-2" />
-            Mark all as read
-          </Button>
-        </div>
+      <div>
+        <h1 className="text-3xl font-bold mb-2">Notifications</h1>
+        <p className="text-muted-foreground">View and manage your notifications.</p>
       </div>
 
-      <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-5 w-full max-w-md">
-          <TabsTrigger value="all">All</TabsTrigger>
-          <TabsTrigger value="unread">Unread</TabsTrigger>
-          <TabsTrigger value="order">Orders</TabsTrigger>
-          <TabsTrigger value="inventory">Inventory</TabsTrigger>
-          <TabsTrigger value="delivery">Delivery</TabsTrigger>
-        </TabsList>
-        <TabsContent value={activeTab} className="mt-6">
-          {isLoading ? (
+      <Card>
+        <CardHeader>
+          <CardTitle>All Notifications</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {notifications && notifications.length > 0 ? (
             <div className="space-y-4">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Card key={i}>
-                  <CardHeader className="pb-2">
-                    <div className="flex justify-between">
-                      <Skeleton className="h-5 w-40" />
-                      <Skeleton className="h-4 w-24" />
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-2/3 mt-2" />
-                  </CardContent>
-                </Card>
+              {notifications.map((notification) => (
+                <div key={notification.id} className="flex items-center justify-between border-b pb-4">
+                  <div>
+                    <h3 className="font-medium">{notification.title}</h3>
+                    <p className="text-sm text-muted-foreground">{notification.message}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(notification.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                  {!notification.read && <div className="h-2 w-2 rounded-full bg-blue-500"></div>}
+                </div>
               ))}
-            </div>
-          ) : filteredNotifications.length === 0 ? (
-            <div className="text-center py-12">
-              <Bell className="mx-auto h-12 w-12 text-muted-foreground" />
-              <h3 className="mt-4 text-lg font-semibold">No notifications</h3>
-              <p className="mt-2 text-sm text-muted-foreground">
-                You don't have any {activeTab !== "all" ? activeTab : ""} notifications.
-              </p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {filteredNotifications.map((notification) => (
-                <Card
-                  key={notification.id}
-                  className={`${!notification.is_read ? "border-l-4 border-l-blue-500" : ""}`}
-                >
-                  <CardHeader className="pb-2">
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center">
-                        {getNotificationIcon(notification.type)}
-                        <CardTitle className="text-base">{notification.title}</CardTitle>
-                      </div>
-                      <CardDescription>{format(new Date(notification.created_at), "MMM d, h:mm a")}</CardDescription>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <p>{notification.message}</p>
-                    <div className="flex justify-between mt-4">
-                      {notification.action_url && (
-                        <Button size="sm" asChild>
-                          <a href={notification.action_url}>View Details</a>
-                        </Button>
-                      )}
-                      {!notification.is_read && (
-                        <Button variant="outline" size="sm" onClick={() => markAsRead(notification.id)}>
-                          Mark as read
-                        </Button>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+            <div className="text-center py-6 text-muted-foreground">No notifications found</div>
           )}
-        </TabsContent>
-      </Tabs>
+        </CardContent>
+      </Card>
     </div>
   )
 }

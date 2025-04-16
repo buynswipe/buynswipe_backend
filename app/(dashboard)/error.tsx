@@ -18,6 +18,14 @@ export default function DashboardError({
     console.error("Dashboard error:", error)
   }, [error])
 
+  // Check if the error is a redirect error
+  const isRedirectError = error.message === "NEXT_REDIRECT" || error.message.includes("Redirect")
+
+  // If it's a redirect error, don't show the error UI
+  if (isRedirectError) {
+    return null
+  }
+
   return (
     <div className="container flex h-screen items-center justify-center">
       <Card className="mx-auto max-w-md">

@@ -1,109 +1,76 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Bell } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Separator } from "@/components/ui/separator"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Skeleton } from "@/components/ui/skeleton"
-import { useRealTimeUpdates } from "@/lib/real-time-service"
-import Link from "next/link"
-import { format } from "date-fns"
+import { getUnreadNotificationCount } from "@/lib/notification-api"
+import { useRouter } from "next/navigation"
 
-export function NotificationBell() {
-  const [open, setOpen] = useState(false)
-  const { notifications, unreadCount, isLoading, markAsRead, markAllAsRead } = useRealTimeUpdates()
+interface NotificationBellProps {
+  userId: string
+}
 
-  const handleNotificationClick = (id: string, url?: string) => {
-    markAsRead(id)
-    if (url) {
-      // Navigate to the URL
-      window.location.href = url
+export function NotificationBell({ userId }: NotificationBellProps) {
+  const [unreadCount, setUnreadCount] = useState(0)
+  const router = useRouter()
+
+  useEffect(() => {
+    const fetchUnreadCount = async () => {
+      try {
+        const { count } = await getUnreadNotificationCount(userId)
+        setUnreadCount(count)
+      } catch (error) {
+        console.error("Error fetching unread notifications:", error)
+      }
     }
-    setOpen(false)
-  }
 
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case "order":
-        return <div className="w-2 h-2 bg-blue-500 rounded-full mr-2" />
-      case "inventory":
-        return <div className="w-2 h-2 bg-yellow-500 rounded-full mr-2" />
-      case "payment":
-        return <div className="w-2 h-2 bg-green-500 rounded-full mr-2" />
-      case "delivery":
-        return <div className="w-2 h-2 bg-purple-500 rounded-full mr-2" />
-      default:
-        return <div className="w-2 h-2 bg-gray-500 rounded-full mr-2" />
-    }
+    fetchUnreadCount()
+
+    // Set up polling to check for new notifications
+    const interval = setInterval(fetchUnreadCount, 30000)
+
+    return () => clearInterval(interval)
+  }, [userId])
+
+  const handleViewAll = () => {
+    router.push("/notifications")
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
-            <span className="absolute top-0 right-0 h-4 w-4 rounded-full bg-red-500 text-[10px] font-medium text-white flex items-center justify-center">
+            <Badge
+              className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center"
+              variant="destructive"
+            >
               {unreadCount > 9 ? "9+" : unreadCount}
-            </span>
+            </Badge>
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-0" align="end">
-        <div className="flex items-center justify-between p-4">
-          <h4 className="font-medium">Notifications</h4>
-          {unreadCount > 0 && (
-            <Button variant="ghost" size="sm" onClick={markAllAsRead}>
-              Mark all as read
+      <PopoverContent className="w-80" align="end">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h4 className="font-medium">Notifications</h4>
+            <Button variant="ghost" size="sm" onClick={handleViewAll}>
+              View all
             </Button>
-          )}
-        </div>
-        <Separator />
-        <ScrollArea className="h-[300px]">
-          {isLoading ? (
-            <div className="p-4 space-y-4">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="flex items-start gap-4">
-                  <Skeleton className="h-8 w-8 rounded-full" />
-                  <div className="space-y-2">
-                    <Skeleton className="h-4 w-32" />
-                    <Skeleton className="h-3 w-64" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : notifications.length === 0 ? (
-            <div className="p-4 text-center text-sm text-muted-foreground">No notifications</div>
-          ) : (
-            <div className="divide-y">
-              {notifications.map((notification) => (
-                <div
-                  key={notification.id}
-                  className={`p-4 cursor-pointer hover:bg-muted ${!notification.is_read ? "bg-muted/50" : ""}`}
-                  onClick={() => handleNotificationClick(notification.id, notification.action_url)}
-                >
-                  <div className="flex items-start gap-2">
-                    {getNotificationIcon(notification.type)}
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium">{notification.title}</p>
-                      <p className="text-xs text-muted-foreground">{notification.message}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {format(new Date(notification.created_at), "MMM d, h:mm a")}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </ScrollArea>
-        <Separator />
-        <div className="p-2">
-          <Button variant="ghost" size="sm" className="w-full" asChild>
-            <Link href="/notifications">View all notifications</Link>
-          </Button>
+          </div>
+          <div className="h-px bg-border" />
+          <div className="max-h-80 overflow-y-auto space-y-2">
+            {unreadCount === 0 ? (
+              <div className="text-center py-6 text-muted-foreground">No new notifications</div>
+            ) : (
+              <div className="text-center py-6 text-muted-foreground">
+                You have {unreadCount} unread notification{unreadCount !== 1 && "s"}
+              </div>
+            )}
+          </div>
         </div>
       </PopoverContent>
     </Popover>

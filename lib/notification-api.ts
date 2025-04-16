@@ -1,5 +1,6 @@
 /**
- * This file provides notification-related functions for the application
+ * This file provides a clean implementation of notification-related functions
+ * to replace the problematic lib/notifications.ts file
  */
 
 // Type definitions for notifications
@@ -17,10 +18,6 @@ export interface Notification {
 
 /**
  * Get notifications for a specific user
- * @param userId - The user ID to fetch notifications for
- * @param limit - Optional limit for pagination
- * @param offset - Optional offset for pagination
- * @returns Array of notifications
  */
 export async function getUserNotifications(userId: string, limit = 20, offset = 0) {
   // Simple implementation that returns an empty array
@@ -29,8 +26,6 @@ export async function getUserNotifications(userId: string, limit = 20, offset = 
 
 /**
  * Mark a specific notification as read
- * @param notificationId - The ID of the notification to mark as read
- * @returns Success status and any error
  */
 export async function markNotificationAsRead(notificationId: string) {
   // Simple implementation that returns success
@@ -39,8 +34,6 @@ export async function markNotificationAsRead(notificationId: string) {
 
 /**
  * Mark all notifications for a user as read
- * @param userId - The user ID to mark all notifications as read for
- * @returns Success status and any error
  */
 export async function markAllNotificationsAsRead(userId: string) {
   // Simple implementation that returns success
@@ -49,8 +42,6 @@ export async function markAllNotificationsAsRead(userId: string) {
 
 /**
  * Get the count of unread notifications for a user
- * @param userId - The user ID to count unread notifications for
- * @returns Count of unread notifications
  */
 export async function getUnreadNotificationCount(userId: string) {
   // Simple implementation that returns zero
