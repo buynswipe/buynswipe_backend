@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server"
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
-import { createNotification } from "@/lib/server-notifications"
 
 export async function POST(request: Request) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
+    const supabase = createClientComponentClient({ cookies })
 
     // Get current user session
     const {
@@ -32,22 +31,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
 
-    // Create notification data object
-    const notificationData = {
-      user_id: body.user_id,
-      title: body.title,
-      message: body.message,
-      type: body.type,
-      related_entity_type: body.related_entity_type,
-    }
-
-    // Only add related_entity_id if it exists
-    if (body.related_entity_id) {
-      notificationData.related_entity_id = body.related_entity_id
-    }
-
-    // Create the notification
-    const { data, error } = await createNotification(notificationData)
+    // Create notification
+    const { data, error } = await supabase
+      .from("notifications")
+      .insert({
+        user_id: body.user_id,
+        title: body.title,
+        message: body.message,
+        type: body.type,
+        is_read: false,
+        related_entity_type: body.related_entity_type,
+        related_entity_id: body.related_entity_id,
+        action_url: body.action_url,
+        data: body.data,
+      })
+      .select()
+      .single()
 
     if (error) {
       console.error("Error creating notification:", error)
@@ -63,7 +62,7 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
+    const supabase = createClientComponentClient({ cookies })
 
     // Get current user session
     const {
@@ -103,7 +102,7 @@ export async function GET(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
+    const supabase = createClientComponentClient({ cookies })
 
     // Get current user session
     const {
