@@ -97,6 +97,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Failed to assign delivery partner" }, { status: 500 })
     }
 
+    // After the order update
+    console.log(`Successfully assigned delivery partner ${deliveryPartnerId} to order ${orderId}`)
+
     // Send notifications about delivery partner assignment
     try {
       const orderNumber = orderId.substring(0, 8)
@@ -139,6 +142,12 @@ export async function POST(request: NextRequest) {
       console.error("Failed to create notification:", notificationError)
       // Continue anyway, don't fail the request
     }
+
+    // After sending notifications
+    console.log(`Successfully sent notifications for delivery assignment of order ${orderId}`)
+
+    // Before returning success response
+    console.log(`Completed delivery partner assignment process for order ${orderId}`)
 
     return NextResponse.json({
       success: true,
