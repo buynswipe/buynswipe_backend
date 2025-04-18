@@ -36,7 +36,7 @@ export default function AdminPage() {
           </CardContent>
           <CardFooter>
             <Button asChild variant="outline" size="sm" className="w-full">
-              <Link href="/admin/database">Manage Database</Link>
+              <Link href="/admin/database-management">Manage Database</Link>
             </Button>
           </CardFooter>
         </Card>

@@ -6,6 +6,7 @@ import { Package, MapPin, Clock, ArrowRight } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 
 export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 export default async function MyDeliveriesPage() {
   const supabase = createServerSupabaseClient()
@@ -23,20 +24,45 @@ export default async function MyDeliveriesPage() {
   const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
 
   // Get delivery partner info
-  const { data: partner } = await supabase.from("delivery_partners").select("*").eq("user_id", session.user.id).single()
+  const { data: partner, error: partnerError } = await supabase
+    .from("delivery_partners")
+    .select("*")
+    .eq("user_id", session.user.id)
+    .single()
 
-  // Get assigned orders
-  const { data: deliveries } = await supabase
+  if (partnerError) {
+    console.error("Error fetching delivery partner:", partnerError)
+    return (
+      <div className="p-4">
+        <h1 className="text-2xl font-bold mb-4">Error</h1>
+        <p className="text-red-500">Could not find your delivery partner profile. Please contact an administrator.</p>
+        <pre className="mt-4 p-2 bg-gray-100 rounded text-sm overflow-auto">
+          {JSON.stringify({ userId: session.user.id, error: partnerError.message }, null, 2)}
+        </pre>
+      </div>
+    )
+  }
+
+  console.log("Delivery partner found:", partner)
+
+  // Get assigned orders - include all relevant statuses
+  const { data: deliveries, error: deliveriesError } = await supabase
     .from("orders")
     .select(`
-    *,
-    retailer:profiles!retailer_id(id, business_name, phone, address, city, pincode),
-    wholesaler:profiles!wholesaler_id(id, business_name),
-    order_items(id, product_id, quantity, price, product:products(name))
-  `)
-    .eq("delivery_partner_id", partner?.id || "")
-    .in("status", ["confirmed", "dispatched", "in_transit"])
+      *,
+      retailer:profiles!retailer_id(id, business_name, phone, address, city, pincode),
+      wholesaler:profiles!wholesaler_id(id, business_name),
+      order_items(id, product_id, quantity, price, product:products(name))
+    `)
+    .eq("delivery_partner_id", partner.id)
+    .in("status", ["confirmed", "dispatched", "in_transit", "assigned"])
     .order("created_at", { ascending: false })
+
+  if (deliveriesError) {
+    console.error("Error fetching deliveries:", deliveriesError)
+  }
+
+  console.log("Deliveries found:", deliveries?.length || 0)
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -46,6 +72,8 @@ export default async function MyDeliveriesPage() {
         return <Badge variant="secondary">Dispatched</Badge>
       case "in_transit":
         return <Badge variant="default">In Transit</Badge>
+      case "assigned":
+        return <Badge variant="outline">Assigned</Badge>
       default:
         return <Badge variant="outline">{status}</Badge>
     }
@@ -56,6 +84,7 @@ export default async function MyDeliveriesPage() {
       <div>
         <h1 className="text-3xl font-bold mb-2">My Deliveries</h1>
         <p className="text-muted-foreground">Track and manage your assigned deliveries</p>
+        <p className="text-sm text-muted-foreground mt-1">Delivery Partner ID: {partner.id}</p>
       </div>
 
       {!deliveries || deliveries.length === 0 ? (

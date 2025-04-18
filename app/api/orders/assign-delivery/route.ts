@@ -1,7 +1,7 @@
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
-import { sendNotification } from "@/lib/notification-service"
+import { createServerNotification } from "@/lib/unified-notification-service"
 
 export async function POST(request: Request) {
   const supabase = createRouteHandlerClient({ cookies })
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     // Get the order to check if it belongs to the wholesaler
     const { data: order, error: orderError } = await supabase
       .from("orders")
-      .select("id, wholesaler_id, status")
+      .select("id, wholesaler_id, status, retailer_id")
       .eq("id", orderId)
       .single()
 
@@ -76,7 +76,7 @@ export async function POST(request: Request) {
       )
     }
 
-    // Verify the delivery partner exists
+    // Verify the delivery partner exists and get their user_id
     const { data: deliveryPartner, error: partnerError } = await supabase
       .from("delivery_partners")
       .select("id, user_id, name")
@@ -86,6 +86,14 @@ export async function POST(request: Request) {
     if (partnerError) {
       console.error("Error fetching delivery partner:", partnerError)
       return NextResponse.json({ error: "Delivery partner not found" }, { status: 404 })
+    }
+
+    // Check if the delivery partner has a user_id
+    if (!deliveryPartner.user_id) {
+      console.warn("Delivery partner does not have a user_id:", deliveryPartnerId)
+      // Continue with the process, but log a warning
+    } else {
+      console.log("Delivery partner user_id:", deliveryPartner.user_id)
     }
 
     console.log("Assigning delivery partner:", {
@@ -101,6 +109,7 @@ export async function POST(request: Request) {
       .update({
         delivery_partner_id: deliveryPartnerId,
         status: "dispatched", // Update status to dispatched when assigning delivery partner
+        delivery_instructions: instructions || null, // Make sure instructions are saved
       })
       .eq("id", orderId)
 
@@ -124,17 +133,35 @@ export async function POST(request: Request) {
     // Send notification to the delivery partner if they have a user account
     if (deliveryPartner.user_id) {
       try {
-        await sendNotification({
-          userId: deliveryPartner.user_id,
+        await createServerNotification({
+          user_id: deliveryPartner.user_id,
           title: "New Delivery Assigned",
           message: `You have been assigned a new delivery for order #${orderId.substring(0, 8)}`,
-          type: "delivery_assigned",
-          data: { orderId },
+          type: "info",
+          entity_type: "delivery",
+          entity_id: orderId,
+          action_url: `/delivery-partner/tracking/${orderId}`,
         })
       } catch (notificationError) {
         console.error("Error sending notification:", notificationError)
         // Continue with the process even if notification fails
       }
+    }
+
+    // Also notify the retailer
+    try {
+      await createServerNotification({
+        user_id: order.retailer_id,
+        title: "Order Dispatched",
+        message: `Your order #${orderId.substring(0, 8)} has been dispatched and is on its way.`,
+        type: "info",
+        entity_type: "order",
+        entity_id: orderId,
+        action_url: `/orders/${orderId}`,
+      })
+    } catch (notificationError) {
+      console.error("Error sending retailer notification:", notificationError)
+      // Continue with the process even if notification fails
     }
 
     return NextResponse.json({

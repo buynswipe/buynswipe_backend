@@ -30,7 +30,7 @@ export default async function ActiveDeliveriesPage() {
       wholesaler:wholesaler_id(business_name, address, city, pincode)
     `)
     .eq("delivery_partner_id", partner?.id || "")
-    .in("status", ["dispatched"])
+    .in("status", ["dispatched", "confirmed", "assigned", "in_transit"])
     .order("created_at", { ascending: false })
 
   return (

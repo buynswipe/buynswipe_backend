@@ -34,6 +34,9 @@ export async function createServerNotification(data: NotificationData) {
       return { success: false, error: "user_id is required" }
     }
 
+    // Ensure user_id is a string, not an object
+    const userId = typeof data.user_id === "object" ? data.user_id.id || data.user_id.toString() : data.user_id
+
     // Check if notifications table exists
     const { error: tableCheckError } = await supabase.from("notifications").select("id").limit(1)
 
@@ -45,7 +48,7 @@ export async function createServerNotification(data: NotificationData) {
     // Insert notification
     const { error } = await supabase.from("notifications").insert({
       id: uuidv4(),
-      user_id: data.user_id,
+      user_id: userId,
       title: data.title,
       message: data.message,
       type: data.type,

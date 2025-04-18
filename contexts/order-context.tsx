@@ -100,7 +100,10 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         const { data: partner } = await supabase.from("delivery_partners").select("id").eq("user_id", userId).single()
 
         if (partner) {
+          console.log("Delivery partner ID found:", partner.id)
           query = query.eq("delivery_partner_id", partner.id)
+        } else {
+          console.error("No delivery partner record found for user ID:", userId)
         }
       }
 
