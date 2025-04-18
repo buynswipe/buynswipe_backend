@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle, CheckCircle, Loader2 } from "lucide-react"
+import { AlertCircle, CheckCircle, Loader2, ArrowLeft } from "lucide-react"
+import Link from "next/link"
 
 export default function SetupPage() {
   const [isLoading, setIsLoading] = useState(false)
@@ -74,9 +75,19 @@ export default function SetupPage() {
 
   return (
     <div className="container mx-auto py-8 px-4">
-      <Card className="max-w-md mx-auto">
+      <div className="flex items-center mb-6">
+        <Button variant="ghost" size="sm" asChild className="mr-2">
+          <Link href="/admin">
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Back to Admin
+          </Link>
+        </Button>
+        <h1 className="text-2xl font-bold">Setup Delivery Tracking</h1>
+      </div>
+
+      <Card className="max-w-2xl mx-auto">
         <CardHeader>
-          <CardTitle>Setup Delivery Tracking</CardTitle>
+          <CardTitle>Setup Delivery Tracking System</CardTitle>
           <CardDescription>
             Run this setup once to create the delivery tracking database and initialize existing orders.
           </CardDescription>
@@ -103,20 +114,35 @@ export default function SetupPage() {
             </Alert>
           )}
 
-          <p className="text-sm text-gray-500 mb-4">This process will:</p>
-          <ul className="list-disc pl-5 text-sm text-gray-500 space-y-1 mb-4">
-            <li>Create the delivery_updates table if it doesn't exist</li>
-            <li>Set up row-level security policies</li>
-            <li>Create initial delivery status records for existing orders</li>
-          </ul>
-          <p className="text-sm text-gray-500">
-            <strong>Note:</strong> This should only be run once. Running it multiple times may create duplicate records.
-          </p>
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-lg font-medium mb-2">What This Setup Will Do</h3>
+              <ul className="list-disc pl-5 text-sm text-gray-500 space-y-1">
+                <li>Create the delivery_updates table if it doesn't exist</li>
+                <li>Set up row-level security policies for proper data access</li>
+                <li>Create initial delivery status records for existing orders</li>
+                <li>Configure real-time updates for delivery tracking</li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-medium mb-2">Prerequisites</h3>
+              <ul className="list-disc pl-5 text-sm text-gray-500 space-y-1">
+                <li>You must have admin privileges to run this setup</li>
+                <li>The SETUP_SECRET_TOKEN environment variable must be set</li>
+                <li>Existing orders will be initialized with their current status</li>
+              </ul>
+            </div>
+
+            <div className="bg-amber-50 p-4 rounded-md">
+              <p className="text-sm text-amber-800">
+                <strong>Note:</strong> This should only be run once. Running it multiple times may create duplicate
+                records.
+              </p>
+            </div>
+          </div>
         </CardContent>
-        <CardFooter className="flex justify-between">
-          <Button variant="outline" onClick={() => router.push("/admin")}>
-            Back to Admin
-          </Button>
+        <CardFooter className="flex justify-end">
           <Button onClick={runSetup} disabled={isLoading}>
             {isLoading ? (
               <>

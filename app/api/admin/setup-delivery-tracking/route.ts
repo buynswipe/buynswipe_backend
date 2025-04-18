@@ -1,8 +1,6 @@
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
-import fs from "fs"
-import path from "path"
 
 export async function POST(request: Request) {
   try {
@@ -12,7 +10,8 @@ export async function POST(request: Request) {
 
     // Verify the setup token
     if (!process.env.SETUP_SECRET_TOKEN || token !== process.env.SETUP_SECRET_TOKEN) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      console.error("Invalid or missing setup token")
+      return NextResponse.json({ error: "Unauthorized. Invalid token." }, { status: 401 })
     }
 
     const supabase = createRouteHandlerClient({ cookies })
@@ -23,50 +22,136 @@ export async function POST(request: Request) {
     } = await supabase.auth.getSession()
 
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      console.error("No session found")
+      return NextResponse.json({ error: "Unauthorized. Please log in." }, { status: 401 })
     }
 
     // Get user profile to check if they're an admin
     const { data: profile } = await supabase.from("profiles").select("role").eq("id", session.user.id).single()
 
     if (!profile || profile.role !== "admin") {
+      console.error("User is not an admin", profile)
       return NextResponse.json({ error: "Unauthorized. Admin access required." }, { status: 403 })
     }
 
     console.log("Starting delivery tracking setup...")
 
-    // Read the SQL script
-    const sqlFilePath = path.join(process.cwd(), "scripts", "create-delivery-updates-table.sql")
+    // Create the delivery_updates table directly with SQL
+    const createTableSQL = `
+      CREATE TABLE IF NOT EXISTS delivery_updates (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+        status TEXT NOT NULL CHECK (status IN ('confirmed', 'dispatched', 'in_transit', 'out_for_delivery', 'delivered')),
+        location TEXT,
+        notes TEXT,
+        updated_by UUID REFERENCES profiles(id),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      
+      -- Create index for faster queries
+      CREATE INDEX IF NOT EXISTS idx_delivery_updates_order_id ON delivery_updates(order_id);
+      CREATE INDEX IF NOT EXISTS idx_delivery_updates_status ON delivery_updates(status);
+      CREATE INDEX IF NOT EXISTS idx_delivery_updates_created_at ON delivery_updates(created_at);
+      
+      -- Enable RLS
+      ALTER TABLE delivery_updates ENABLE ROW LEVEL SECURITY;
+    `
 
-    // Check if the file exists
-    if (!fs.existsSync(sqlFilePath)) {
-      return NextResponse.json({ error: "SQL script not found" }, { status: 500 })
+    // Execute the create table SQL
+    const { error: createTableError } = await supabase.rpc("exec_sql", { sql: createTableSQL })
+
+    if (createTableError) {
+      console.error("Error creating table:", createTableError)
+      return NextResponse.json(
+        {
+          error: "Error creating delivery_updates table",
+          details: createTableError,
+        },
+        { status: 500 },
+      )
     }
 
-    const sqlScript = fs.readFileSync(sqlFilePath, "utf8")
+    // Create RLS policies
+    const policiesSQL = `
+      -- Policy for selecting delivery updates
+      DO $$ 
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_policies WHERE tablename = 'delivery_updates' AND policyname = 'select_delivery_updates'
+        ) THEN
+          CREATE POLICY select_delivery_updates ON delivery_updates
+            FOR SELECT USING (
+              EXISTS (
+                SELECT 1 FROM orders o
+                WHERE o.id = order_id
+                AND (
+                  o.retailer_id = auth.uid() OR
+                  o.wholesaler_id = auth.uid() OR
+                  o.delivery_partner_id = auth.uid() OR
+                  EXISTS (SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
+                )
+              )
+            );
+        END IF;
+      END $$;
+      
+      -- Policy for inserting delivery updates
+      DO $$ 
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_policies WHERE tablename = 'delivery_updates' AND policyname = 'insert_delivery_updates'
+        ) THEN
+          CREATE POLICY insert_delivery_updates ON delivery_updates
+            FOR INSERT WITH CHECK (
+              EXISTS (
+                SELECT 1 FROM orders o
+                WHERE o.id = order_id
+                AND (
+                  o.delivery_partner_id = auth.uid() OR
+                  EXISTS (SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
+                )
+              )
+            );
+        END IF;
+      END $$;
+      
+      -- Policy for updating delivery updates
+      DO $$ 
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_policies WHERE tablename = 'delivery_updates' AND policyname = 'update_delivery_updates'
+        ) THEN
+          CREATE POLICY update_delivery_updates ON delivery_updates
+            FOR UPDATE USING (
+              updated_by = auth.uid() OR
+              EXISTS (SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
+            );
+        END IF;
+      END $$;
+      
+      -- Policy for deleting delivery updates
+      DO $$ 
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_policies WHERE tablename = 'delivery_updates' AND policyname = 'delete_delivery_updates'
+        ) THEN
+          CREATE POLICY delete_delivery_updates ON delivery_updates
+            FOR DELETE USING (
+              EXISTS (SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
+            );
+        END IF;
+      END $$;
+    `
 
-    // Split the script by semicolons to execute each statement separately
-    const statements = sqlScript
-      .split(";")
-      .map((statement) => statement.trim())
-      .filter((statement) => statement.length > 0)
+    // Execute the policies SQL
+    const { error: policiesError } = await supabase.rpc("exec_sql", { sql: policiesSQL })
 
-    console.log(`Executing ${statements.length} SQL statements...`)
-
-    // Execute each SQL statement
-    for (const statement of statements) {
-      try {
-        const { error } = await supabase.rpc("exec_sql", { sql: statement })
-        if (error) {
-          console.error("Error executing SQL statement:", error)
-        }
-      } catch (error) {
-        console.error("Error executing SQL statement:", error)
-        // Continue with other statements even if one fails
-      }
+    if (policiesError) {
+      console.error("Error creating policies:", policiesError)
+      // Continue even if there's an error with policies
     }
 
-    console.log("Delivery updates table created successfully")
+    console.log("Delivery updates table and policies created successfully")
 
     // Create initial delivery updates for existing orders
     const { data: orders, error: ordersError } = await supabase
@@ -90,7 +175,7 @@ export async function POST(request: Request) {
     }
 
     // Create initial delivery updates in batches to avoid payload size limits
-    const BATCH_SIZE = 100
+    const BATCH_SIZE = 50
     let processedCount = 0
     let errorCount = 0
 
@@ -102,6 +187,7 @@ export async function POST(request: Request) {
         status: order.status,
         notes: "Initial status",
         created_at: order.created_at,
+        updated_by: session.user.id,
       }))
 
       const { error: insertError } = await supabase.from("delivery_updates").insert(updates)

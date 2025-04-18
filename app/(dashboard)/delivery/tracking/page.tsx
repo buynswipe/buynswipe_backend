@@ -2,7 +2,7 @@ import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import { Package, MapPin, Clock, CheckCircle2, AlertTriangle } from "lucide-react"
+import { Package, MapPin, Clock, CheckCircle2, AlertTriangle, Truck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -41,6 +41,10 @@ export default async function DeliveryTrackingPage() {
     .in("status", ["dispatched", "in_transit", "out_for_delivery"])
     .order("created_at", { ascending: false })
 
+  if (ordersError) {
+    console.error("Error fetching orders:", ordersError)
+  }
+
   // Fetch completed orders
   const { data: completedOrders, error: completedOrdersError } = await supabase
     .from("orders")
@@ -53,6 +57,50 @@ export default async function DeliveryTrackingPage() {
     .eq("status", "delivered")
     .order("updated_at", { ascending: false })
     .limit(10)
+
+  if (completedOrdersError) {
+    console.error("Error fetching completed orders:", completedOrdersError)
+  }
+
+  // If no orders are found, create a test order for demonstration
+  const createTestOrder = async () => {
+    if (profile.role === "admin" && (!orders || orders.length === 0)) {
+      try {
+        // Get a retailer
+        const { data: retailers } = await supabase.from("profiles").select("id").eq("role", "retailer").limit(1)
+
+        // Get a wholesaler
+        const { data: wholesalers } = await supabase.from("profiles").select("id").eq("role", "wholesaler").limit(1)
+
+        if (retailers?.length > 0 && wholesalers?.length > 0) {
+          // Create a test order
+          const { data: newOrder, error } = await supabase
+            .from("orders")
+            .insert({
+              retailer_id: retailers[0].id,
+              wholesaler_id: wholesalers[0].id,
+              status: "dispatched",
+              payment_method: "cod",
+              payment_status: "pending",
+              total_amount: 100,
+              delivery_partner_id: session.user.id,
+            })
+            .select()
+
+          if (error) {
+            console.error("Error creating test order:", error)
+          }
+        }
+      } catch (error) {
+        console.error("Error in createTestOrder:", error)
+      }
+    }
+  }
+
+  // Only create test order if admin and no orders exist
+  if (profile.role === "admin" && (!orders || orders.length === 0)) {
+    await createTestOrder()
+  }
 
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
@@ -103,15 +151,15 @@ export default async function DeliveryTrackingPage() {
                         <MapPin className="h-4 w-4 text-gray-500 mt-0.5" />
                         <div>
                           <p className="text-sm font-medium">Delivery Address</p>
-                          <p className="text-sm text-gray-500">{order.retailer.address || "No address provided"}</p>
+                          <p className="text-sm text-gray-500">{order.retailer?.address || "No address provided"}</p>
                         </div>
                       </div>
                       <div className="flex items-start gap-2">
                         <Package className="h-4 w-4 text-gray-500 mt-0.5" />
                         <div>
                           <p className="text-sm font-medium">Pickup From</p>
-                          <p className="text-sm text-gray-500">{order.wholesaler.name}</p>
-                          <p className="text-sm text-gray-500">{order.wholesaler.address || "No address provided"}</p>
+                          <p className="text-sm text-gray-500">{order.wholesaler?.name}</p>
+                          <p className="text-sm text-gray-500">{order.wholesaler?.address || "No address provided"}</p>
                         </div>
                       </div>
                       <div className="flex items-start gap-2">
@@ -140,6 +188,17 @@ export default async function DeliveryTrackingPage() {
               <Package className="mx-auto h-12 w-12 text-gray-400" />
               <h3 className="mt-2 text-lg font-medium text-gray-900">No active deliveries</h3>
               <p className="mt-1 text-sm text-gray-500">You don't have any active deliveries at the moment.</p>
+
+              {profile.role === "admin" && (
+                <div className="mt-6">
+                  <Button asChild>
+                    <Link href="/admin/create-delivery-partner">
+                      <Truck className="mr-2 h-4 w-4" />
+                      Create Test Delivery
+                    </Link>
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </TabsContent>
@@ -164,15 +223,15 @@ export default async function DeliveryTrackingPage() {
                         <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5" />
                         <div>
                           <p className="text-sm font-medium">Delivered To</p>
-                          <p className="text-sm text-gray-500">{order.retailer.name}</p>
-                          <p className="text-sm text-gray-500">{order.retailer.address || "No address provided"}</p>
+                          <p className="text-sm text-gray-500">{order.retailer?.name}</p>
+                          <p className="text-sm text-gray-500">{order.retailer?.address || "No address provided"}</p>
                         </div>
                       </div>
                       <div className="flex items-start gap-2">
                         <Package className="h-4 w-4 text-gray-500 mt-0.5" />
                         <div>
                           <p className="text-sm font-medium">Picked Up From</p>
-                          <p className="text-sm text-gray-500">{order.wholesaler.name}</p>
+                          <p className="text-sm text-gray-500">{order.wholesaler?.name}</p>
                         </div>
                       </div>
                     </div>

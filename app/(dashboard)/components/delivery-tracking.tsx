@@ -18,6 +18,7 @@ interface DeliveryUpdate {
   location?: string
   notes?: string
   created_at: string
+  updated_by?: string
 }
 
 interface DeliveryTrackingProps {
@@ -30,6 +31,7 @@ export function DeliveryTracking({ orderId, initialStatus, isDeliveryPartner = f
   const [status, setStatus] = useState<DeliveryStatus>(initialStatus)
   const [updates, setUpdates] = useState<DeliveryUpdate[]>([])
   const [loading, setLoading] = useState(false)
+  const [isInitialLoading, setIsInitialLoading] = useState(true)
   const [location, setLocation] = useState("")
   const [notes, setNotes] = useState("")
   const supabase = createClientComponentClient()
@@ -55,6 +57,38 @@ export function DeliveryTracking({ orderId, initialStatus, isDeliveryPartner = f
   useEffect(() => {
     fetchDeliveryUpdates()
 
+    // If no updates exist yet, create an initial update based on the order status
+    const createInitialUpdate = async () => {
+      const { data: existingUpdates, error: checkError } = await supabase
+        .from("delivery_updates")
+        .select("id")
+        .eq("order_id", orderId)
+        .limit(1)
+
+      if (checkError) {
+        console.error("Error checking for existing updates:", checkError)
+        return
+      }
+
+      // If no updates exist and the order has a status, create an initial update
+      if ((!existingUpdates || existingUpdates.length === 0) && initialStatus) {
+        const { error: createError } = await supabase.from("delivery_updates").insert({
+          order_id: orderId,
+          status: initialStatus,
+          notes: "Initial status",
+        })
+
+        if (createError) {
+          console.error("Error creating initial update:", createError)
+        } else {
+          // Refresh updates after creating initial one
+          fetchDeliveryUpdates()
+        }
+      }
+    }
+
+    createInitialUpdate()
+
     // Set up real-time subscription for updates
     const channel = supabase
       .channel(`delivery_updates_${orderId}`)
@@ -77,25 +111,34 @@ export function DeliveryTracking({ orderId, initialStatus, isDeliveryPartner = f
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [orderId, supabase])
+  }, [orderId, initialStatus, supabase])
 
   const fetchDeliveryUpdates = async () => {
     try {
+      setIsInitialLoading(true)
       const { data, error } = await supabase
         .from("delivery_updates")
         .select("*")
         .eq("order_id", orderId)
         .order("created_at", { ascending: false })
 
-      if (error) throw error
+      if (error) {
+        console.error("Error fetching delivery updates:", error)
+        throw error
+      }
 
       if (data && data.length > 0) {
         setUpdates(data)
         // Update the current status to the most recent one
         setStatus(data[0].status)
+      } else if (initialStatus) {
+        // If no updates but we have an initial status, use it
+        setStatus(initialStatus)
       }
     } catch (error) {
       console.error("Error fetching delivery updates:", error)
+    } finally {
+      setIsInitialLoading(false)
     }
   }
 
@@ -238,7 +281,11 @@ export function DeliveryTracking({ orderId, initialStatus, isDeliveryPartner = f
 
         <div>
           <h3 className="text-sm font-medium mb-4">Delivery Updates</h3>
-          {updates.length > 0 ? (
+          {isInitialLoading ? (
+            <div className="flex justify-center items-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+            </div>
+          ) : updates.length > 0 ? (
             <div className="space-y-4">
               {updates.map((update) => (
                 <div key={update.id} className="border rounded-md p-4">
@@ -269,6 +316,7 @@ export function DeliveryTracking({ orderId, initialStatus, isDeliveryPartner = f
             <div className="text-center py-6 text-gray-500">
               <Package className="mx-auto h-12 w-12 opacity-30 mb-2" />
               <p>No delivery updates yet</p>
+              {initialStatus && <p className="text-sm mt-2">Current status: {statusLabels[initialStatus]}</p>}
             </div>
           )}
         </div>

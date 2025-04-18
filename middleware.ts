@@ -63,7 +63,7 @@ export async function middleware(req: NextRequest) {
       // Handle role-based routing
       if (profile) {
         // Root path redirects
-        if (path === "/" || path === "/dashboard") {
+        if (path === "/" || path === "/main") {
           if (profile.role === "delivery_partner") {
             const redirectUrl = new URL("/delivery-partner/dashboard", req.url)
             return NextResponse.redirect(redirectUrl)
