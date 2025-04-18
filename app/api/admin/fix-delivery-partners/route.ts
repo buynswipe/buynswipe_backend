@@ -24,6 +24,15 @@ export async function POST() {
   }
 
   try {
+    // Execute the SQL script to add the updated_at column
+    const { error: sqlError } = await supabase.rpc("exec_sql", {
+      sql: `ALTER TABLE delivery_partners ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();`,
+    })
+
+    if (sqlError) {
+      console.error("Error adding updated_at column:", sqlError)
+    }
+
     const result = await fixDeliveryPartners()
 
     if (!result.success) {

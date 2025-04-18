@@ -1,11 +1,10 @@
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
-import { type NextRequest, NextResponse } from "next/server"
-import { createServerNotification } from "@/lib/unified-notification-service"
+import { NextResponse } from "next/server"
+import { sendNotification } from "@/lib/notification-service"
 
-export async function POST(request: NextRequest) {
-  const cookieStore = cookies()
-  const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+export async function POST(request: Request) {
+  const supabase = createRouteHandlerClient({ cookies })
 
   // Check if user is authenticated
   const {
@@ -13,17 +12,21 @@ export async function POST(request: NextRequest) {
   } = await supabase.auth.getSession()
 
   if (!session) {
+    console.log("Unauthorized: No session found")
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
   try {
     const { orderId, deliveryPartnerId, instructions } = await request.json()
 
+    console.log(`Attempting to assign delivery partner ${deliveryPartnerId} to order ${orderId}`)
+
     if (!orderId || !deliveryPartnerId) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+      console.log("Missing required fields: orderId or deliveryPartnerId")
+      return NextResponse.json({ error: "Order ID and delivery partner ID are required" }, { status: 400 })
     }
 
-    // Get user profile to check role
+    // Get the user's profile to check role
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("role")
@@ -31,64 +34,73 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (profileError) {
-      return NextResponse.json({ error: "Profile not found" }, { status: 404 })
+      console.error("Error fetching profile:", profileError)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
 
-    // Get order details
+    // Check if user is authorized to update this order
+    if (profile.role !== "admin" && profile.role !== "wholesaler") {
+      console.log(`Unauthorized: User role is ${profile.role}`)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
+    }
+
+    // Get the order to check if it belongs to the wholesaler
     const { data: order, error: orderError } = await supabase
       .from("orders")
-      .select("*, retailer:profiles!retailer_id(id, business_name, address, city, pincode)")
+      .select("id, wholesaler_id, status")
       .eq("id", orderId)
       .single()
 
-    if (orderError || !order) {
+    if (orderError) {
+      console.error("Error fetching order:", orderError)
       return NextResponse.json({ error: "Order not found" }, { status: 404 })
     }
 
-    // Check if user is authorized to assign delivery partner
+    // If user is a wholesaler, check if the order belongs to them
     if (profile.role === "wholesaler" && order.wholesaler_id !== session.user.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
+      console.log(`Unauthorized: Order does not belong to wholesaler`)
+      return NextResponse.json(
+        { error: "Unauthorized. You can only assign delivery partners to your own orders" },
+        { status: 403 },
+      )
     }
 
-    if (profile.role === "retailer") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
+    // Check if the order status allows assigning a delivery partner
+    if (order.status !== "confirmed" && order.status !== "dispatched") {
+      console.log(`Invalid order status: ${order.status}`)
+      return NextResponse.json(
+        {
+          error: `Cannot assign delivery partner to order with status '${order.status}'. Order must be 'confirmed' or 'dispatched'`,
+        },
+        { status: 400 },
+      )
     }
 
-    // Check if delivery partner exists
-    const { data: deliveryPartner, error: deliveryPartnerError } = await supabase
+    // Verify the delivery partner exists
+    const { data: deliveryPartner, error: partnerError } = await supabase
       .from("delivery_partners")
-      .select("*")
+      .select("id, user_id, name")
       .eq("id", deliveryPartnerId)
       .single()
 
-    if (deliveryPartnerError || !deliveryPartner) {
+    if (partnerError) {
+      console.error("Error fetching delivery partner:", partnerError)
       return NextResponse.json({ error: "Delivery partner not found" }, { status: 404 })
     }
 
-    if (!deliveryPartner.is_active) {
-      return NextResponse.json({ error: "Selected delivery partner is inactive" }, { status: 400 })
-    }
+    console.log("Assigning delivery partner:", {
+      orderId,
+      deliveryPartnerId,
+      deliveryPartnerUserId: deliveryPartner.user_id,
+      deliveryPartnerName: deliveryPartner.name,
+    })
 
-    // Ensure delivery partner has vehicle information
-    if (!deliveryPartner.vehicle_type || !deliveryPartner.vehicle_number) {
-      return NextResponse.json({ error: "Delivery partner has incomplete vehicle information" }, { status: 400 })
-    }
-
-    // If wholesaler, check if delivery partner belongs to them
-    if (
-      profile.role === "wholesaler" &&
-      deliveryPartner.wholesaler_id &&
-      deliveryPartner.wholesaler_id !== session.user.id
-    ) {
-      return NextResponse.json({ error: "Unauthorized to use this delivery partner" }, { status: 403 })
-    }
-
-    // Update order with delivery partner and instructions
+    // Update the order with the delivery partner ID
     const { error: updateError } = await supabase
       .from("orders")
       .update({
         delivery_partner_id: deliveryPartnerId,
-        delivery_instructions: instructions || null,
+        status: "dispatched", // Update status to dispatched when assigning delivery partner
       })
       .eq("id", orderId)
 
@@ -97,64 +109,45 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Failed to assign delivery partner" }, { status: 500 })
     }
 
-    // After the order update
-    console.log(`Successfully assigned delivery partner ${deliveryPartnerId} to order ${orderId}`)
+    // Create a delivery status update record
+    const { error: statusError } = await supabase.from("delivery_status_updates").insert({
+      order_id: orderId,
+      delivery_partner_id: deliveryPartnerId,
+      status: "assigned",
+    })
 
-    // Send notifications about delivery partner assignment
-    try {
-      const orderNumber = orderId.substring(0, 8)
-
-      // If delivery partner has a user_id, send a notification
-      if (deliveryPartner.user_id) {
-        await createServerNotification({
-          user_id: deliveryPartner.user_id,
-          title: "New Delivery Assignment",
-          message: `You have been assigned to deliver order #${orderNumber} to ${order.retailer.business_name} in ${order.retailer.city}.`,
-          type: "info",
-          related_entity_type: "delivery",
-          related_entity_id: orderId,
-          action_url: `/delivery-partner/tracking/${orderId}`,
-        })
-      }
-
-      // Notify retailer about delivery partner assignment
-      await createServerNotification({
-        user_id: order.retailer_id,
-        title: "Delivery Partner Assigned",
-        message: `${deliveryPartner.name} has been assigned to deliver your order #${orderNumber}.`,
-        type: "info",
-        related_entity_type: "delivery",
-        related_entity_id: orderId,
-        action_url: `/orders/${orderId}`,
-      })
-
-      // Notification to wholesaler (for record)
-      await createServerNotification({
-        user_id: session.user.id,
-        title: "Delivery Partner Assigned",
-        message: `${deliveryPartner.name} has been assigned to deliver order #${orderNumber} to ${order.retailer.business_name}.`,
-        type: "info",
-        related_entity_type: "delivery",
-        related_entity_id: orderId,
-        action_url: `/orders/${orderId}`,
-      })
-    } catch (notificationError) {
-      console.error("Failed to create notification:", notificationError)
-      // Continue anyway, don't fail the request
+    if (statusError) {
+      console.error("Error creating delivery status update:", statusError)
+      // Continue with the process even if status update fails
     }
 
-    // After sending notifications
-    console.log(`Successfully sent notifications for delivery assignment of order ${orderId}`)
-
-    // Before returning success response
-    console.log(`Completed delivery partner assignment process for order ${orderId}`)
+    // Send notification to the delivery partner if they have a user account
+    if (deliveryPartner.user_id) {
+      try {
+        await sendNotification({
+          userId: deliveryPartner.user_id,
+          title: "New Delivery Assigned",
+          message: `You have been assigned a new delivery for order #${orderId.substring(0, 8)}`,
+          type: "delivery_assigned",
+          data: { orderId },
+        })
+      } catch (notificationError) {
+        console.error("Error sending notification:", notificationError)
+        // Continue with the process even if notification fails
+      }
+    }
 
     return NextResponse.json({
       success: true,
       message: "Delivery partner assigned successfully",
+      data: {
+        orderId,
+        deliveryPartnerId,
+        status: "dispatched",
+      },
     })
   } catch (error: any) {
-    console.error("Error assigning delivery partner:", error)
+    console.error("Error in assign-delivery API:", error)
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })
   }
 }

@@ -1,24 +1,30 @@
 "use client"
 
-import { useState } from "react"
+import { useState } from "@/lib/use"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { AlertCircle, CheckCircle, Loader2 } from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export function LinkDeliveryPartners() {
   const [loading, setLoading] = useState(false)
-  const [results, setResults] = useState<{
-    total: number
-    created: number
-    existing: number
-    errors: number
+  const [result, setResults] = useState<{
+    success: boolean
+    message?: string
+    details?: {
+      created: number
+      updated: number
+      orphaned: number
+      total: number
+    }
   } | null>(null)
 
-  async function handleLinkDeliveryPartners() {
-    try {
-      setLoading(true)
+  const handleLinkDeliveryPartners = async () => {
+    setLoading(true)
+    setResults(null)
 
+    try {
       const response = await fetch("/api/admin/link-delivery-partners", {
         method: "POST",
         headers: {
@@ -32,10 +38,12 @@ export function LinkDeliveryPartners() {
         throw new Error(data.error || "Failed to link delivery partners")
       }
 
-      setResults(data.results)
+      setResults(data)
       toast({
         title: "Success",
-        description: `Linked ${data.results.created} delivery partners`,
+        description: `Linked ${data.details?.updated || 0} delivery partners and created ${
+          data.details?.created || 0
+        } new records.`,
         variant: "default",
       })
     } catch (error: any) {
@@ -53,43 +61,37 @@ export function LinkDeliveryPartners() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Link Delivery Partners</CardTitle>
-        <CardDescription>Create delivery partner records for users with the delivery_partner role</CardDescription>
+        <CardTitle>Link Delivery Partners to Users</CardTitle>
+        <CardDescription>Fix the connection between delivery partner records and user accounts</CardDescription>
       </CardHeader>
       <CardContent>
-        <p className="text-sm text-muted-foreground mb-4">
-          This will check all user profiles with the delivery_partner role and create corresponding records in the
-          delivery_partners table if they don't already exist.
-        </p>
+        <p className="text-sm text-muted-foreground mb-4">This will:</p>
+        <ul className="list-disc pl-5 mt-2 mb-4 space-y-1 text-sm text-muted-foreground">
+          <li>Find all users with the role "delivery_partner"</li>
+          <li>Create delivery partner records for users that don't have one</li>
+          <li>Update existing delivery partner records to link to the correct user</li>
+        </ul>
 
-        {results && (
-          <div className="bg-muted p-4 rounded-md mb-4">
-            <h4 className="font-medium mb-2">Results:</h4>
-            <ul className="space-y-1 text-sm">
-              <li className="flex items-center gap-2">
-                <span className="text-muted-foreground">Total profiles checked:</span> {results.total}
-              </li>
-              <li className="flex items-center gap-2">
+        {result && (
+          <Alert
+            variant={result.success ? "default" : "destructive"}
+            className={result.success ? "bg-green-50 text-green-800 border-green-200" : undefined}
+          >
+            <div className="flex items-center gap-2">
+              {result.success ? (
                 <CheckCircle className="h-4 w-4 text-green-500" />
-                <span>New records created:</span> {results.created}
-              </li>
-              <li className="flex items-center gap-2">
-                <span>Records already existing:</span> {results.existing}
-              </li>
-              {results.errors > 0 && (
-                <li className="flex items-center gap-2">
-                  <AlertCircle className="h-4 w-4 text-red-500" />
-                  <span className="text-red-500">Errors encountered:</span> {results.errors}
-                </li>
+              ) : (
+                <AlertCircle className="h-4 w-4" />
               )}
-            </ul>
-          </div>
+              <AlertDescription>{result.message}</AlertDescription>
+            </div>
+          </Alert>
         )}
       </CardContent>
       <CardFooter>
         <Button onClick={handleLinkDeliveryPartners} disabled={loading}>
           {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {loading ? "Processing..." : "Link Delivery Partners"}
+          {loading ? "Fixing..." : "Link Delivery Partners"}
         </Button>
       </CardFooter>
     </Card>

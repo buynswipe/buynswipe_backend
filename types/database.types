@@ -41,8 +41,6 @@ export interface Order {
   notes?: string | null
   estimated_delivery?: string | null
   delivery_partner_id?: string | null
-  delivery_instructions?: string | null
-  payment_reference?: string | null
 }
 
 export interface OrderItem {
@@ -61,10 +59,6 @@ export interface Transaction {
   payment_method: "cod" | "upi"
   status: "pending" | "completed" | "failed"
   transaction_fee: number
-  payment_gateway?: string | null
-  gateway_transaction_id?: string | null
-  metadata?: any
-  external_reference?: string | null
 }
 
 export interface DeliveryPartner {

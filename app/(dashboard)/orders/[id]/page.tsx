@@ -26,8 +26,8 @@ import type { Order, UserProfile, OrderItem, Product, DeliveryPartner } from "@/
 import { PaymentButton } from "./payment-button"
 // Import the DocumentActions component
 import { DocumentActions } from "./document-actions"
-// Import the DeliveryTracking component
-import { DeliveryTracking } from "@/components/delivery/delivery-tracking"
+// Update the import for DeliveryTracking
+import { DeliveryTracking } from "@/app/(dashboard)/components/delivery-tracking"
 
 interface OrderWithDetails extends Order {
   retailer: UserProfile
