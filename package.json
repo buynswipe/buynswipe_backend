@@ -68,9 +68,7 @@
     "path": "latest",
     "nanoid": "latest",
     "ai": "latest",
-    "@ai-sdk/openai": "latest",
-    "child_process": "latest",
-    "util": "latest"
+    "@ai-sdk/openai": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

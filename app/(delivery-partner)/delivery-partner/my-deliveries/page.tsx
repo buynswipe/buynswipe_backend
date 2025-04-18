@@ -29,11 +29,9 @@ export default async function MyDeliveriesPage() {
   const { data: deliveries } = await supabase
     .from("orders")
     .select(`
-    *,
-    retailer:profiles!retailer_id(id, business_name, phone, address, city, pincode),
-    wholesaler:profiles!wholesaler_id(id, business_name),
-    order_items(id, product_id, quantity, price, product:products(name))
-  `)
+      *,
+      retailer:retailer_id(business_name, address, city, pincode, phone)
+    `)
     .eq("delivery_partner_id", partner?.id || "")
     .in("status", ["confirmed", "dispatched", "in_transit"])
     .order("created_at", { ascending: false })

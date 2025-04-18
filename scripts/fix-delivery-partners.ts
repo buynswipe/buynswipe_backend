@@ -104,7 +104,6 @@ export default async function fixDeliveryPartners() {
           pincode: user.pincode || "000000",
           is_active: true,
           user_id: user.id,
-          updated_at: new Date().toISOString(),
         })
 
         if (createError) {
