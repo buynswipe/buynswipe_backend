@@ -1,22 +1,39 @@
-import { CreateExecSqlFunction } from "@/components/admin/create-exec-sql-function"
 import { CreateNotificationsTable } from "@/components/admin/create-notifications-table"
-import { AddDeliveryPartnerOrderPolicy } from "@/components/admin/add-delivery-partner-order-policy"
-import { FixNotificationsRLS } from "@/components/admin/fix-notifications-rls"
+import { CreateExecSqlFunction } from "@/components/admin/create-exec-sql-function"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 export default function DatabaseManagementPage() {
   return (
-    <div className="container mx-auto py-10">
-      <h1 className="text-3xl font-semibold mb-6">Database Management</h1>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-        <CreateExecSqlFunction />
-        <CreateNotificationsTable />
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold tracking-tight">Database Management</h2>
+        <p className="text-muted-foreground">Manage your database tables and functions.</p>
       </div>
 
-      <h2 className="text-2xl font-semibold mb-4">Permissions & Policies</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <AddDeliveryPartnerOrderPolicy />
-        <FixNotificationsRLS />
+      <div className="grid gap-6 md:grid-cols-2">
+        <CreateNotificationsTable />
+        <CreateExecSqlFunction />
+
+        {/* Placeholder for future components */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Delivery Partners Table</CardTitle>
+            <CardDescription>Create or update the delivery partners table structure.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">This functionality will be available soon.</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Earnings Table</CardTitle>
+            <CardDescription>Create or update the delivery partner earnings table.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">This functionality will be available soon.</p>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )
