@@ -11,7 +11,7 @@ export interface UserProfile {
   city: string
   pincode: string
   is_approved: boolean
-  gst_number?: string | null
+  gst_number?: string
   latitude?: number
   longitude?: number
 }
@@ -21,12 +21,12 @@ export interface Product {
   created_at: string
   wholesaler_id: string
   name: string
-  description: string | null
+  description: string
   category: string
   price: number
   stock_quantity: number
   initial_quantity: number
-  image_url?: string | null
+  image_url?: string
 }
 
 export interface Order {
@@ -38,11 +38,9 @@ export interface Order {
   payment_method: "cod" | "upi"
   payment_status: "pending" | "paid"
   total_amount: number
-  notes?: string | null
-  estimated_delivery?: string | null
-  delivery_partner_id?: string | null
-  delivery_instructions?: string | null
-  payment_reference?: string | null
+  notes?: string
+  estimated_delivery?: string
+  delivery_partner_id?: string
 }
 
 export interface OrderItem {
@@ -61,10 +59,6 @@ export interface Transaction {
   payment_method: "cod" | "upi"
   status: "pending" | "completed" | "failed"
   transaction_fee: number
-  payment_gateway?: string | null
-  gateway_transaction_id?: string | null
-  metadata?: any
-  external_reference?: string | null
 }
 
 export interface DeliveryPartner {
@@ -72,58 +66,55 @@ export interface DeliveryPartner {
   created_at: string
   name: string
   phone: string
-  email: string | null
+  email: string
   vehicle_type: "bike" | "auto" | "van" | "truck"
   vehicle_number: string
-  license_number: string | null
+  license_number: string
   address: string
   city: string
   pincode: string
   is_active: boolean
-  wholesaler_id?: string | null
-  user_id?: string | null
-  total_earnings?: number | null
-  pending_payout?: number | null
-  last_payout_date?: string | null
-  total_deliveries?: number | null
-  on_time_deliveries?: number | null
-  rating?: number | null
+  wholesaler_id?: string // Only for wholesaler-specific delivery partners
+  user_id?: string // Link to auth.users for delivery partner login
+  total_earnings?: number
+  pending_payout?: number
+  last_payout_date?: string
+  total_deliveries?: number
+  on_time_deliveries?: number
+  rating?: number
 }
 
-// DeliveryStatusUpdate type
 export interface DeliveryStatusUpdate {
   id: string
   order_id: string
   delivery_partner_id: string
   status: "assigned" | "picked_up" | "in_transit" | "delivered" | "failed"
-  location_lat?: number | null
-  location_lng?: number | null
-  notes?: string | null
+  location_lat?: number
+  location_lng?: number
+  notes?: string
   created_at: string
 }
 
-// DeliveryProof type
 export interface DeliveryProof {
   id: string
   order_id: string
   delivery_partner_id: string
-  photo_url?: string | null
-  signature_url?: string | null
+  photo_url?: string
+  signature_url?: string
   receiver_name: string
-  notes?: string | null
+  notes?: string
   created_at: string
 }
 
-// DeliveryPartnerEarning type
 export interface DeliveryPartnerEarning {
   id: string
   delivery_partner_id: string
   order_id: string
   amount: number
   status: "pending" | "paid" | "cancelled"
-  payout_id?: string | null
+  payout_id?: string
   created_at: string
-  paid_at?: string | null
+  paid_at?: string
 }
 
 // Chat Support System Types

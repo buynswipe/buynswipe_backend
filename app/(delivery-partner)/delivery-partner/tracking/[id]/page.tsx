@@ -1,290 +1,253 @@
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { notFound } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { MapPin, Package, Truck, Clock, CheckCircle, AlertTriangle } from "lucide-react"
+import { Separator } from "@/components/ui/separator"
+import { Truck, Package, MapPin, User, Phone, CreditCard, CheckCircle, Clock } from "lucide-react"
+import { DeliveryStatusUpdate } from "@/components/delivery-partner/delivery-status-update"
+import { DeliveryProofForm } from "@/components/delivery-partner/delivery-proof-form"
+import { CodCollectionForm } from "@/components/delivery-partner/cod-collection-form"
+
+interface DeliveryTrackingPageProps {
+  params: {
+    id: string
+  }
+}
 
 export const dynamic = "force-dynamic"
 
-export default async function DeliveryTrackingPage({ params }: { params: { id: string } }) {
-  const supabase = createServerComponentClient({ cookies })
-  const orderId = params.id
-
-  // Get current user
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-
-  if (!session) {
-    return (
-      <div className="container mx-auto p-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Not Authenticated</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p>Please log in to view delivery tracking.</p>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
-  // Get delivery partner info
-  const { data: deliveryPartner, error: partnerError } = await supabase
-    .from("delivery_partners")
-    .select("*")
-    .eq("user_id", session.user.id)
-    .single()
-
-  if (partnerError && partnerError.code !== "PGRST116") {
-    console.error("Error fetching delivery partner:", partnerError)
-  }
-
-  if (!deliveryPartner) {
-    return (
-      <div className="container mx-auto p-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-yellow-500" />
-              <span>Delivery Partner Profile Not Found</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p>Your user account is not linked to a delivery partner profile.</p>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
+export default async function DeliveryTrackingPage({ params }: DeliveryTrackingPageProps) {
+  const { id } = params
+  const supabase = createServerSupabaseClient()
 
   // Get order details
-  const { data: order, error: orderError } = await supabase
+  const { data: order, error } = await supabase
     .from("orders")
     .select(`
       *,
-      retailer:profiles!retailer_id(business_name, address, city, pincode, phone),
-      wholesaler:profiles!wholesaler_id(business_name, address, city, pincode, phone)
+      retailer:retailer_id(business_name, address, city, pincode, phone, email),
+      wholesaler:wholesaler_id(business_name, address, city, pincode, phone, email),
+      items:order_items(*, product:product_id(*))
     `)
-    .eq("id", orderId)
+    .eq("id", id)
     .single()
 
-  if (orderError) {
-    console.error("Error fetching order:", orderError)
-    return notFound()
+  if (error || !order) {
+    notFound()
   }
 
-  // Check if this order is assigned to the current delivery partner
-  // Either directly in the orders table or via delivery_status_updates
-  const { data: statusUpdates, error: statusError } = await supabase
+  // Get delivery status updates
+  const { data: statusUpdates } = await supabase
     .from("delivery_status_updates")
     .select("*")
-    .eq("order_id", orderId)
-    .eq("delivery_partner_id", deliveryPartner.id)
-    .order("created_at", { ascending: false })
+    .eq("order_id", id)
+    .order("created_at", { ascending: true })
 
-  if (statusError) {
-    console.error("Error fetching status updates:", statusError)
-  }
+  // Get delivery proof
+  const { data: deliveryProof } = await supabase.from("delivery_proofs").select("*").eq("order_id", id).maybeSingle()
 
-  const isAssignedViaStatusUpdates = statusUpdates && statusUpdates.length > 0
-  const isAssignedDirectly = order.delivery_partner_id === deliveryPartner.id
-
-  if (!isAssignedDirectly && !isAssignedViaStatusUpdates) {
-    return (
-      <div className="container mx-auto p-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-yellow-500" />
-              <span>Not Authorized</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p>This order is not assigned to you.</p>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
-  // Get latest status
-  const latestStatus = statusUpdates && statusUpdates.length > 0 ? statusUpdates[0].status : order.status
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "assigned":
-      case "assigned_for_delivery":
-        return <Badge className="bg-blue-500">Assigned</Badge>
-      case "picked_up":
-        return <Badge className="bg-orange-500">Picked Up</Badge>
-      case "in_transit":
-        return <Badge className="bg-purple-500">In Transit</Badge>
-      case "delivered":
-        return <Badge className="bg-green-500">Delivered</Badge>
-      case "failed":
-        return <Badge className="bg-red-500">Failed</Badge>
-      default:
-        return <Badge>{status}</Badge>
-    }
-  }
+  const isDelivered = order.status === "delivered"
+  const isCod = order.payment_method === "cod"
 
   return (
-    <div className="container mx-auto p-4 space-y-6">
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle>Order #{orderId.substring(0, 8)}</CardTitle>
-            {getStatusBadge(latestStatus)}
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-sm font-medium mb-1">Pickup From</h3>
-                <div className="flex items-start gap-2">
-                  <MapPin className="h-4 w-4 mt-1 text-muted-foreground" />
-                  <div>
-                    <p className="font-medium">{order.wholesaler?.business_name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {order.wholesaler?.address}, {order.wholesaler?.city}, {order.wholesaler?.pincode}
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold mb-2">Delivery Tracking</h1>
+        <p className="text-muted-foreground">
+          Order #{id.substring(0, 8)} • {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+        </p>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-3">
+        <div className="md:col-span-2 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Order Details</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <h3 className="font-medium flex items-center gap-2">
+                    <Package className="h-4 w-4" />
+                    Order Information
+                  </h3>
+                  <div className="mt-2 space-y-1 text-sm">
+                    <p>Order ID: #{id.substring(0, 8)}</p>
+                    <p>Created: {new Date(order.created_at).toLocaleString()}</p>
+                    <p>Status: {order.status.charAt(0).toUpperCase() + order.status.slice(1)}</p>
+                    <p>Payment Method: {order.payment_method.toUpperCase()}</p>
+                    <p>
+                      Payment Status: {order.payment_status.charAt(0).toUpperCase() + order.payment_status.slice(1)}
                     </p>
-                    <p className="text-sm text-muted-foreground">Phone: {order.wholesaler?.phone || "N/A"}</p>
+                    <p>Total Amount: ₹{order.total_amount.toFixed(2)}</p>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="font-medium flex items-center gap-2">
+                    <User className="h-4 w-4" />
+                    Delivery Information
+                  </h3>
+                  <div className="mt-2 space-y-1 text-sm">
+                    <p>Retailer: {order.retailer?.business_name}</p>
+                    <p>Address: {order.retailer?.address}</p>
+                    <p>
+                      City: {order.retailer?.city}, {order.retailer?.pincode}
+                    </p>
+                    <div className="flex items-center gap-1">
+                      <Phone className="h-3 w-3" />
+                      <p>{order.retailer?.phone}</p>
+                    </div>
+                    <p>Wholesaler: {order.wholesaler?.business_name}</p>
                   </div>
                 </div>
               </div>
 
-              <div>
-                <h3 className="text-sm font-medium mb-1">Deliver To</h3>
-                <div className="flex items-start gap-2">
-                  <MapPin className="h-4 w-4 mt-1 text-muted-foreground" />
-                  <div>
-                    <p className="font-medium">{order.retailer?.business_name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {order.retailer?.address}, {order.retailer?.city}, {order.retailer?.pincode}
-                    </p>
-                    <p className="text-sm text-muted-foreground">Phone: {order.retailer?.phone || "N/A"}</p>
-                  </div>
-                </div>
-              </div>
+              <Separator />
 
               <div>
-                <h3 className="text-sm font-medium mb-1">Order Details</h3>
-                <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">
-                    Created: {new Date(order.created_at).toLocaleString()}
-                  </p>
+                <h3 className="font-medium mb-2">Order Items</h3>
+                <div className="space-y-2">
+                  {order.items?.map((item: any) => (
+                    <div key={item.id} className="flex justify-between items-center">
+                      <div>
+                        <p className="font-medium">{item.product?.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {item.quantity} x ₹{item.price.toFixed(2)}
+                        </p>
+                      </div>
+                      <p className="font-medium">₹{(item.quantity * item.price).toFixed(2)}</p>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex items-center gap-2 mt-1">
-                  <Package className="h-4 w-4 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">
-                    Payment: {order.payment_method.toUpperCase()} ({order.payment_status})
-                  </p>
-                </div>
-                {order.delivery_instructions && (
-                  <div className="mt-2 p-2 bg-yellow-50 rounded-md">
-                    <p className="text-sm font-medium">Delivery Instructions:</p>
-                    <p className="text-sm">{order.delivery_instructions}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {!isDelivered && <DeliveryStatusUpdate orderId={id} currentStatus={order.status} />}
+
+          {order.status === "dispatched" && !deliveryProof && <DeliveryProofForm orderId={id} isCod={isCod} />}
+
+          {isCod && order.status === "delivered" && order.payment_status === "pending" && (
+            <CodCollectionForm orderId={id} amount={order.total_amount} />
+          )}
+        </div>
+
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Delivery Status</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {statusUpdates?.map((update) => (
+                  <div key={update.id} className="flex items-start gap-2">
+                    {update.status === "assigned" && <Truck className="h-4 w-4 mt-0.5 text-blue-500" />}
+                    {update.status === "picked_up" && <Package className="h-4 w-4 mt-0.5 text-orange-500" />}
+                    {update.status === "in_transit" && <MapPin className="h-4 w-4 mt-0.5 text-purple-500" />}
+                    {update.status === "delivered" && <CheckCircle className="h-4 w-4 mt-0.5 text-green-500" />}
+                    {update && <CheckCircle className="h-4 w-4 mt-0.5 text-green-500" />}
+                    {update.status === "failed" && <Clock className="h-4 w-4 mt-0.5 text-red-500" />}
+                    <div>
+                      <p className="font-medium">
+                        {update.status.charAt(0).toUpperCase() + update.status.slice(1).replace("_", " ")}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{new Date(update.created_at).toLocaleString()}</p>
+                      {update.notes && <p className="text-sm mt-1">{update.notes}</p>}
+                    </div>
+                  </div>
+                ))}
+
+                {(!statusUpdates || statusUpdates.length === 0) && (
+                  <div className="text-center py-4">
+                    <p className="text-muted-foreground">No status updates yet</p>
                   </div>
                 )}
               </div>
-            </div>
+            </CardContent>
+          </Card>
 
-            <div className="space-y-4">
-              <h3 className="text-sm font-medium">Delivery Status</h3>
+          <Card>
+            <CardHeader>
+              <CardTitle>Payment Information</CardTitle>
+            </CardHeader>
+            <CardContent>
               <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <div
-                    className={`h-8 w-8 rounded-full flex items-center justify-center ${
-                      latestStatus === "assigned" || latestStatus === "assigned_for_delivery"
-                        ? "bg-blue-100 text-blue-600"
-                        : "bg-gray-100 text-gray-400"
-                    }`}
+                <div className="flex justify-between">
+                  <span>Payment Method:</span>
+                  <span className="font-medium">{order.payment_method.toUpperCase()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Payment Status:</span>
+                  <span
+                    className={`font-medium ${order.payment_status === "paid" ? "text-green-600" : "text-amber-600"}`}
                   >
-                    <Truck className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <p className="font-medium">Assigned</p>
-                    {isAssignedViaStatusUpdates && statusUpdates[0].created_at && (
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(statusUpdates[0].created_at).toLocaleString()}
-                      </p>
-                    )}
-                  </div>
+                    {order.payment_status.charAt(0).toUpperCase() + order.payment_status.slice(1)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Total Amount:</span>
+                  <span className="font-medium">₹{order.total_amount.toFixed(2)}</span>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <div
-                    className={`h-8 w-8 rounded-full flex items-center justify-center ${
-                      latestStatus === "picked_up" ? "bg-orange-100 text-orange-600" : "bg-gray-100 text-gray-400"
-                    }`}
-                  >
-                    <Package className="h-4 w-4" />
+                {isCod && order.status === "delivered" && order.payment_status === "pending" && (
+                  <div className="mt-4">
+                    <Button asChild className="w-full">
+                      <a href="#cod-collection">
+                        <CreditCard className="mr-2 h-4 w-4" />
+                        Collect Payment
+                      </a>
+                    </Button>
                   </div>
-                  <div>
-                    <p className="font-medium">Picked Up</p>
-                    {statusUpdates?.find((s) => s.status === "picked_up")?.created_at && (
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(statusUpdates.find((s) => s.status === "picked_up")!.created_at).toLocaleString()}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <div
-                    className={`h-8 w-8 rounded-full flex items-center justify-center ${
-                      latestStatus === "in_transit" ? "bg-purple-100 text-purple-600" : "bg-gray-100 text-gray-400"
-                    }`}
-                  >
-                    <Truck className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <p className="font-medium">In Transit</p>
-                    {statusUpdates?.find((s) => s.status === "in_transit")?.created_at && (
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(statusUpdates.find((s) => s.status === "in_transit")!.created_at).toLocaleString()}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <div
-                    className={`h-8 w-8 rounded-full flex items-center justify-center ${
-                      latestStatus === "delivered" ? "bg-green-100 text-green-600" : "bg-gray-100 text-gray-400"
-                    }`}
-                  >
-                    <CheckCircle className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <p className="font-medium">Delivered</p>
-                    {statusUpdates?.find((s) => s.status === "delivered")?.created_at && (
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(statusUpdates.find((s) => s.status === "delivered")!.created_at).toLocaleString()}
-                      </p>
-                    )}
-                  </div>
-                </div>
+                )}
               </div>
+            </CardContent>
+          </Card>
 
-              <div className="pt-4 space-y-2">
-                <Button className="w-full" variant="default">
-                  Update Status
-                </Button>
-                <Button className="w-full" variant="outline">
-                  Contact Customer
-                </Button>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          {deliveryProof && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Delivery Proof</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <p className="text-sm">Received by: {deliveryProof.receiver_name}</p>
+                  <p className="text-sm">Date: {new Date(deliveryProof.created_at).toLocaleString()}</p>
+
+                  {deliveryProof.photo_url && (
+                    <div className="mt-2">
+                      <p className="text-sm font-medium mb-1">Photo:</p>
+                      <img
+                        src={deliveryProof.photo_url || "/placeholder.svg"}
+                        alt="Delivery proof"
+                        className="w-full h-auto rounded-md"
+                      />
+                    </div>
+                  )}
+
+                  {deliveryProof.signature_url && (
+                    <div className="mt-2">
+                      <p className="text-sm font-medium mb-1">Signature:</p>
+                      <img
+                        src={deliveryProof.signature_url || "/placeholder.svg"}
+                        alt="Signature"
+                        className="w-full h-auto rounded-md bg-gray-50"
+                      />
+                    </div>
+                  )}
+
+                  {deliveryProof.notes && (
+                    <div className="mt-2">
+                      <p className="text-sm font-medium mb-1">Notes:</p>
+                      <p className="text-sm">{deliveryProof.notes}</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

@@ -2,11 +2,10 @@ import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerNotification } from "@/lib/unified-notification-service"
-import { validate as isValidUUID } from "uuid"
 
 export async function POST(request: NextRequest) {
   const cookieStore = cookies()
-  const supabase = createRouteHandlerClient({ cookies })
+  const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
 
   // Check if user is authenticated
   const {
@@ -21,17 +20,8 @@ export async function POST(request: NextRequest) {
     const { orderId, deliveryPartnerId, instructions } = await request.json()
 
     if (!orderId || !deliveryPartnerId) {
-      console.error("Missing required fields:", { orderId, deliveryPartnerId })
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
-
-    // Ensure deliveryPartnerId is a valid UUID string
-    if (typeof deliveryPartnerId !== "string" || !isValidUUID(deliveryPartnerId)) {
-      console.error("Invalid deliveryPartnerId:", { deliveryPartnerId })
-      return NextResponse.json({ error: "Invalid deliveryPartnerId format" }, { status: 400 })
-    }
-
-    console.log("Assigning delivery:", { orderId, deliveryPartnerId })
 
     // Get user profile to check role
     const { data: profile, error: profileError } = await supabase
@@ -41,7 +31,6 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (profileError) {
-      console.error("Profile error:", profileError)
       return NextResponse.json({ error: "Profile not found" }, { status: 404 })
     }
 
@@ -53,7 +42,6 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (orderError || !order) {
-      console.error("Order error:", orderError)
       return NextResponse.json({ error: "Order not found" }, { status: 404 })
     }
 
@@ -74,7 +62,6 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (deliveryPartnerError || !deliveryPartner) {
-      console.error("Delivery partner error:", deliveryPartnerError)
       return NextResponse.json({ error: "Delivery partner not found" }, { status: 404 })
     }
 
@@ -82,31 +69,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Selected delivery partner is inactive" }, { status: 400 })
     }
 
-    // Update order with delivery partner and instructions
-    const updateData: any = {
-      delivery_partner_id: deliveryPartnerId,
-      delivery_instructions: instructions || null,
-      status: "dispatched", // Use 'dispatched' status
+    // Ensure delivery partner has vehicle information
+    if (!deliveryPartner.vehicle_type || !deliveryPartner.vehicle_number) {
+      return NextResponse.json({ error: "Delivery partner has incomplete vehicle information" }, { status: 400 })
     }
 
-    const { error: updateError } = await supabase.from("orders").update(updateData).eq("id", orderId)
+    // If wholesaler, check if delivery partner belongs to them
+    if (
+      profile.role === "wholesaler" &&
+      deliveryPartner.wholesaler_id &&
+      deliveryPartner.wholesaler_id !== session.user.id
+    ) {
+      return NextResponse.json({ error: "Unauthorized to use this delivery partner" }, { status: 403 })
+    }
+
+    // Update order with delivery partner and instructions
+    const { error: updateError } = await supabase
+      .from("orders")
+      .update({
+        delivery_partner_id: deliveryPartnerId,
+        delivery_instructions: instructions || null,
+      })
+      .eq("id", orderId)
 
     if (updateError) {
       console.error("Error updating order:", updateError)
       return NextResponse.json({ error: "Failed to assign delivery partner" }, { status: 500 })
-    }
-
-    // Create a delivery status update entry
-    const { error: statusUpdateError } = await supabase.from("delivery_status_updates").insert({
-      order_id: orderId,
-      delivery_partner_id: deliveryPartnerId,
-      status: "dispatched", // Use 'dispatched' status
-      notes: `Assigned by ${profile.role} (${session.user.id})`,
-    })
-
-    if (statusUpdateError) {
-      console.error("Error creating status update:", statusUpdateError)
-      // Continue despite error
     }
 
     // Send notifications about delivery partner assignment
@@ -155,8 +143,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: "Delivery partner assigned successfully",
-      orderId,
-      deliveryPartnerId,
     })
   } catch (error: any) {
     console.error("Error assigning delivery partner:", error)

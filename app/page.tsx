@@ -1,12 +1,9 @@
 import { redirect } from "next/navigation"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { headers } from "next/headers"
 
 export default async function Home() {
   try {
     const supabase = createServerSupabaseClient()
-    const headersList = headers()
-    const redirectUrl = headersList.get("next-url")
 
     // Check if user is logged in
     const {
@@ -15,8 +12,7 @@ export default async function Home() {
 
     // If not logged in, redirect to login
     if (!session) {
-      const redirectURL = new URL("/login", redirectUrl).toString()
-      return redirect(redirectURL)
+      return redirect("/login")
     }
 
     // Get user profile to check role

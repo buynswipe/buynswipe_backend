@@ -35,7 +35,7 @@ export async function notifyDeliveryPartnerOfAssignment(
 
     const { error: notificationError } = await supabase.from("notifications").insert({
       user_id: partner.user_id,
-      type: "delivery",
+      type: "new_assignment",
       title: "New Delivery Assignment",
       message: notificationMessage,
       data: { orderId, deliveryPartnerId },
@@ -82,32 +82,26 @@ export async function notifyDeliveryStatusUpdate(orderId: string, status: string
 
     // Notify retailer
     if (order.retailer_id) {
-      const { error: retailerNotificationError } = await supabase.from("notifications").insert({
+      await supabase.from("notifications").insert({
         user_id: order.retailer_id,
-        type: "delivery",
+        type: "delivery_update",
         title: "Delivery Status Update",
         message: statusMessage,
         data: { orderId, status },
         is_read: false,
       })
-      if (retailerNotificationError) {
-        console.error("Error creating retailer notification:", retailerNotificationError)
-      }
     }
 
     // Notify wholesaler
     if (order.wholesaler_id) {
-      const { error: wholesalerNotificationError } = await supabase.from("notifications").insert({
+      await supabase.from("notifications").insert({
         user_id: order.wholesaler_id,
-        type: "delivery",
+        type: "delivery_update",
         title: "Delivery Status Update",
         message: statusMessage,
         data: { orderId, status },
         is_read: false,
       })
-      if (wholesalerNotificationError) {
-        console.error("Error creating wholesaler notification:", wholesalerNotificationError)
-      }
     }
 
     return { success: true }

@@ -64,9 +64,9 @@
     "dotenv": "latest",
     "uuid": "latest",
     "crypto": "latest",
-    "nanoid": "latest",
     "fs": "latest",
     "path": "latest",
+    "nanoid": "latest",
     "ai": "latest",
     "@ai-sdk/openai": "latest"
   },

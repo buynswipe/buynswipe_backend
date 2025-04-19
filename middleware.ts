@@ -34,7 +34,6 @@ export async function middleware(req: NextRequest) {
     // If no session and trying to access protected route, redirect to login
     if (!session && !isPublicPath) {
       const redirectUrl = new URL("/login", req.url)
-      redirectUrl.searchParams.set("redirect", path)
       return NextResponse.redirect(redirectUrl)
     }
 
@@ -59,6 +58,101 @@ export async function middleware(req: NextRequest) {
       if ((!profile || !profile.is_approved) && !isPublicPath) {
         const redirectUrl = new URL("/pending-approval", req.url)
         return NextResponse.redirect(redirectUrl)
+      }
+
+      // Handle role-based routing
+      if (profile) {
+        // Root path redirects
+        if (path === "/" || path === "/dashboard") {
+          if (profile.role === "delivery_partner") {
+            const redirectUrl = new URL("/delivery-partner/dashboard", req.url)
+            return NextResponse.redirect(redirectUrl)
+          } else if (profile.role === "wholesaler") {
+            const redirectUrl = new URL("/wholesaler-dashboard", req.url)
+            return NextResponse.redirect(redirectUrl)
+          } else {
+            const redirectUrl = new URL("/dashboard/main", req.url)
+            return NextResponse.redirect(redirectUrl)
+          }
+        }
+
+        // Role-specific access restrictions
+        if (profile.role === "wholesaler") {
+          // Wholesalers should not access retailer-specific routes
+          if (path === "/orders") {
+            const redirectUrl = new URL("/order-management", req.url)
+            return NextResponse.redirect(redirectUrl)
+          }
+        }
+
+        if (profile.role === "retailer") {
+          // Retailers should not access wholesaler-specific routes
+          if (path === "/order-management") {
+            const redirectUrl = new URL("/orders", req.url)
+            return NextResponse.redirect(redirectUrl)
+          }
+
+          // Remove the redirect for wholesaler-dashboard for retailers
+          // This allows retailers to view the wholesaler dashboard
+        }
+
+        // Admin-specific routes
+        if (profile?.role !== "admin" && path.startsWith("/admin") && !path.startsWith("/api/admin")) {
+          if (profile.role === "delivery_partner") {
+            const redirectUrl = new URL("/delivery-partner/dashboard", req.url)
+            return NextResponse.redirect(redirectUrl)
+          } else if (profile.role === "wholesaler") {
+            const redirectUrl = new URL("/wholesaler-dashboard", req.url)
+            return NextResponse.redirect(redirectUrl)
+          } else {
+            const redirectUrl = new URL("/dashboard/main", req.url)
+            return NextResponse.redirect(redirectUrl)
+          }
+        }
+
+        // CRITICAL: Delivery partner specific redirects
+        if (profile.role === "delivery_partner") {
+          // If trying to access dashboard or other retailer routes
+          if (
+            path.startsWith("/dashboard") ||
+            path === "/dashboard" ||
+            path.includes("/dashboard/") ||
+            path.startsWith("/admin") ||
+            path.startsWith("/products") ||
+            path.startsWith("/wholesalers") ||
+            path.startsWith("/inventory-alerts") ||
+            path.startsWith("/order-management") ||
+            path === "/orders" ||
+            path === "/wholesaler-dashboard"
+          ) {
+            console.log("Redirecting delivery partner from dashboard to delivery partner dashboard")
+            const redirectUrl = new URL("/delivery-partner/dashboard", req.url)
+            return NextResponse.redirect(redirectUrl)
+          }
+
+          // Handle old delivery routes
+          if (path.startsWith("/delivery") && !path.startsWith("/delivery-partner")) {
+            const newPath = path.replace("/delivery", "/delivery-partner")
+            const redirectUrl = new URL(newPath, req.url)
+            return NextResponse.redirect(redirectUrl)
+          }
+          // Redircting delivery partner notifications
+          if (path === "/notifications") {
+            const redirectUrl = new URL("/delivery-partner/notifications", req.url)
+            return NextResponse.redirect(redirectUrl)
+          }
+        } else {
+          // Non-delivery partners trying to access delivery routes
+          if (path.startsWith("/delivery") || path.startsWith("/delivery-partner")) {
+            if (profile.role === "wholesaler") {
+              const redirectUrl = new URL("/wholesaler-dashboard", req.url)
+              return NextResponse.redirect(redirectUrl)
+            } else {
+              const redirectUrl = new URL("/dashboard/main", req.url)
+              return NextResponse.redirect(redirectUrl)
+            }
+          }
+        }
       }
     }
 

@@ -1,10 +1,16 @@
 "use client"
 
+import type React from "react"
+
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { LayoutDashboard, Package, CheckCircle, Clock, DollarSign, MessageSquare, User } from "lucide-react"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { LayoutDashboard, Truck, CheckCircle, Clock, CreditCard, User, MessageSquare, BellRing } from "lucide-react"
+
+interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
+  className?: string
+}
 
 const deliveryNavItems = [
   {
@@ -15,12 +21,12 @@ const deliveryNavItems = [
   {
     title: "My Deliveries",
     href: "/delivery-partner/my-deliveries",
-    icon: Package,
+    icon: Truck,
   },
   {
     title: "Active Deliveries",
     href: "/delivery-partner/active",
-    icon: Package,
+    icon: Truck,
   },
   {
     title: "Completed Deliveries",
@@ -33,9 +39,14 @@ const deliveryNavItems = [
     icon: Clock,
   },
   {
+    title: "Notifications",
+    href: "/delivery-partner/notifications",
+    icon: BellRing,
+  },
+  {
     title: "Earnings",
     href: "/delivery-partner/earnings",
-    icon: DollarSign,
+    icon: CreditCard,
   },
   {
     title: "Messages",
@@ -49,7 +60,7 @@ const deliveryNavItems = [
   },
 ]
 
-export function DeliveryPartnerSidebar({ className }: { className?: string }) {
+export function DeliveryPartnerSidebar({ className }: SidebarProps) {
   const pathname = usePathname()
 
   return (
@@ -57,21 +68,23 @@ export function DeliveryPartnerSidebar({ className }: { className?: string }) {
       <div className="space-y-4 py-4">
         <div className="px-3 py-2">
           <h2 className="mb-2 px-4 text-lg font-semibold">Delivery Dashboard</h2>
-          <div className="space-y-1">
-            {deliveryNavItems.map((item) => (
-              <Button
-                key={item.href}
-                variant={pathname === item.href ? "secondary" : "ghost"}
-                className={cn("w-full justify-start", pathname === item.href ? "bg-muted hover:bg-muted" : "")}
-                asChild
-              >
-                <Link href={item.href}>
+          <ScrollArea className="h-[calc(100vh-8rem)]">
+            <div className="space-y-1">
+              {deliveryNavItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
+                    pathname === item.href ? "bg-accent" : "transparent",
+                  )}
+                >
                   <item.icon className="mr-2 h-4 w-4" />
                   {item.title}
                 </Link>
-              </Button>
-            ))}
-          </div>
+              ))}
+            </div>
+          </ScrollArea>
         </div>
       </div>
     </div>

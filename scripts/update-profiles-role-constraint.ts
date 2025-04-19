@@ -1,44 +1,38 @@
 import { createClient } from "@supabase/supabase-js"
+import fs from "fs"
+import path from "path"
 
-// Create a Supabase client
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.SUPABASE_SERVICE_ROLE_KEY || "",
-)
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
-export async function updateProfilesRoleConstraint() {
+const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false,
+  },
+})
+
+async function updateProfilesRoleConstraint() {
   try {
-    console.log("Updating profiles role constraint...")
+    console.log("Reading SQL migration file...")
+    const sqlFilePath = path.join(process.cwd(), "supabase/migrations/update-profiles-role-constraint.sql")
+    const sqlContent = fs.readFileSync(sqlFilePath, "utf8")
 
-    // SQL to update the role constraint
-    const sql = `
-      ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
-      ALTER TABLE profiles ADD CONSTRAINT profiles_role_check CHECK (role IN ('admin', 'retailer', 'wholesaler', 'delivery_partner'));
-    `
-
-    // Execute the SQL directly
-    const { error } = await supabaseAdmin.rpc("exec_sql", { query: sql })
+    console.log("Executing SQL migration...")
+    const { error } = await supabase.rpc("exec_sql", { sql_query: sqlContent })
 
     if (error) {
-      console.error("Error updating profiles role constraint:", error)
+      console.error("Error executing SQL migration:", error)
       return { success: false, error: error.message }
     }
 
     console.log("Successfully updated profiles role constraint")
-    return { success: true, message: "Successfully updated profiles role constraint" }
-  } catch (error: any) {
-    console.error("Unexpected error:", error)
-    return { success: false, error: error.message }
+    return { success: true }
+  } catch (error) {
+    console.error("Error updating profiles role constraint:", error)
+    return { success: false, error: String(error) }
   }
 }
 
-// Default export
 export default updateProfilesRoleConstraint
-
-// Run the function if this file is executed directly
-if (require.main === module) {
-  updateProfilesRoleConstraint()
-    .then((result) => console.log(result))
-    .catch((error) => console.error(error))
-    .finally(() => process.exit())
-}

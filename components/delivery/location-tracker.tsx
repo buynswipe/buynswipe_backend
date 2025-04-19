@@ -57,7 +57,7 @@ export function LocationTracker({ orderId, onLocationUpdate }: LocationTrackerPr
 
   // Stop tracking
   const stopTracking = () => {
-    if (watchIdRef.current !== null && navigator.geolocation) {
+    if (watchIdRef.current !== null) {
       navigator.geolocation.clearWatch(watchIdRef.current)
       watchIdRef.current = null
     }
@@ -96,7 +96,7 @@ export function LocationTracker({ orderId, onLocationUpdate }: LocationTrackerPr
   // Clean up on unmount
   useEffect(() => {
     return () => {
-      if (watchIdRef.current !== null && navigator.geolocation) {
+      if (watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current)
       }
     }

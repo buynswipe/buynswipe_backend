@@ -1,67 +1,37 @@
-"use client"
-
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Truck, MapPin, Package, User } from "lucide-react"
 
-export default function ActiveDeliveriesPage() {
-  const [deliveries, setDeliveries] = useState([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const supabase = createClientComponentClient()
-  const router = useRouter()
+export const dynamic = "force-dynamic"
 
-  useEffect(() => {
-    const fetchActiveDeliveries = async () => {
-      try {
-        setIsLoading(true)
+export default async function ActiveDeliveriesPage() {
+  const supabase = createServerSupabaseClient()
 
-        // Get user session
-        const {
-          data: { session },
-        } = await supabase.auth.getSession()
+  // Get user session
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
 
-        if (!session) {
-          throw new Error("Not authenticated")
-        }
+  if (!session) {
+    return <div>Please log in to access this page</div>
+  }
 
-        // Get delivery partner info
-        const { data: partner } = await supabase
-          .from("delivery_partners")
-          .select("id")
-          .eq("user_id", session.user.id)
-          .single()
+  // Get delivery partner info
+  const { data: partner } = await supabase.from("delivery_partners").select("*").eq("user_id", session.user.id).single()
 
-        if (!partner) {
-          throw new Error("Delivery partner not found")
-        }
-
-        // Get active deliveries
-        const { data } = await supabase
-          .from("orders")
-          .select(`
-            *,
-            retailer:profiles!retailer_id(business_name, address, city, pincode),
-            wholesaler:wholesaler_id(business_name, address, city, pincode)
-          `)
-          .eq("delivery_partner_id", partner.id)
-          .in("status", ["dispatched", "picked_up", "in_transit"])
-          .order("created_at", { ascending: false })
-
-        setDeliveries(data || [])
-      } catch (error: any) {
-        setError(error.message)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchActiveDeliveries()
-  }, [supabase])
+  // Get active deliveries
+  const { data: activeDeliveries } = await supabase
+    .from("orders")
+    .select(`
+      *,
+      retailer:retailer_id(business_name, address, city, pincode),
+      wholesaler:wholesaler_id(business_name, address, city, pincode)
+    `)
+    .eq("delivery_partner_id", partner?.id || "")
+    .in("status", ["dispatched"])
+    .order("created_at", { ascending: false })
 
   return (
     <div className="space-y-6">
@@ -70,7 +40,7 @@ export default function ActiveDeliveriesPage() {
         <p className="text-muted-foreground">Manage your ongoing deliveries.</p>
       </div>
 
-      {!deliveries || deliveries.length === 0 ? (
+      {!activeDeliveries || activeDeliveries.length === 0 ? (
         <div className="text-center py-12">
           <Truck className="mx-auto h-12 w-12 text-muted-foreground" />
           <h2 className="mt-4 text-lg font-medium">No active deliveries</h2>
@@ -78,7 +48,7 @@ export default function ActiveDeliveriesPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {deliveries.map((delivery) => (
+          {activeDeliveries.map((delivery) => (
             <Card key={delivery.id}>
               <CardContent className="p-6">
                 <div className="flex flex-col md:flex-row justify-between gap-4">
