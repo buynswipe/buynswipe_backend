@@ -9,10 +9,10 @@ export async function GET() {
     const { data, error } = await supabase
       .from("orders")
       .select(`
-        *,
-        retailer:profiles!retailer_id(business_name, address, city, pincode),
-        wholesaler:wholesaler_id(business_name, address, city, pincode)
-      `)
+      *,
+      retailer:profiles!retailer_id(business_name, address, city, pincode),
+      wholesaler:wholesaler_id(business_name, address, city, pincode)
+    `)
       .eq("status", "delivered")
       .order("created_at", { ascending: false })
 
