@@ -34,7 +34,7 @@ export default async function MyDeliveriesPage() {
      wholesaler:wholesaler_id(business_name, address, city, pincode)
    `)
     .eq("delivery_partner_id", partner?.id || "")
-    .in("status", ["placed", "confirmed", "dispatched", "in_transit"])
+    .in("status", ["confirmed", "dispatched", "in_transit"])
     .order("created_at", { ascending: false })
 
   const getStatusBadge = (status: string) => {
@@ -45,8 +45,6 @@ export default async function MyDeliveriesPage() {
         return <Badge variant="secondary">Dispatched</Badge>
       case "in_transit":
         return <Badge variant="default">In Transit</Badge>
-      case "placed":
-        return <Badge variant="outline">Placed</Badge>
       default:
         return <Badge variant="outline">{status}</Badge>
     }

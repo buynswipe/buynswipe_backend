@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
           type: "info",
           related_entity_type: "delivery",
           related_entity_id: orderId,
-          action_url: `/delivery-partner/active`,
+          action_url: `/delivery-partner/tracking/${orderId}`,
         })
       }
 
@@ -149,3 +149,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })
   }
 }
+
+// This endpoint correctly assigns a delivery partner to an order
+// It updates the order with delivery_partner_id and delivery_instructions
+// It also sends notifications to relevant parties

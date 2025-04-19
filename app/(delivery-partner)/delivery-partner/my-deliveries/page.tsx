@@ -25,16 +25,34 @@ export default async function MyDeliveriesPage() {
   // Get delivery partner info
   const { data: partner } = await supabase.from("delivery_partners").select("*").eq("user_id", session.user.id).single()
 
-  // Get assigned orders
-  const { data: deliveries } = await supabase
+  if (!partner) {
+    return (
+      <div className="p-6 text-center">
+        <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+        <h2 className="text-xl font-medium mb-2">Delivery Partner Profile Not Found</h2>
+        <p className="text-muted-foreground mb-4">Your user account is not linked to a delivery partner profile.</p>
+        <p className="text-sm text-muted-foreground">
+          Please contact an administrator to set up your delivery partner profile.
+        </p>
+      </div>
+    )
+  }
+
+  console.log("Delivery Partner ID:", partner.id)
+
+  // Get assigned orders - with debug logging
+  const { data: deliveries, error } = await supabase
     .from("orders")
     .select(`
       *,
-      retailer:retailer_id(business_name, address, city, pincode, phone)
+      retailer:profiles!retailer_id(business_name, address, city, pincode, phone)
     `)
-    .eq("delivery_partner_id", partner?.id || "")
+    .eq("delivery_partner_id", partner.id)
     .in("status", ["confirmed", "dispatched", "in_transit"])
     .order("created_at", { ascending: false })
+
+  console.log("Deliveries Query Error:", error)
+  console.log("Deliveries Found:", deliveries?.length || 0)
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -54,7 +72,16 @@ export default async function MyDeliveriesPage() {
       <div>
         <h1 className="text-3xl font-bold mb-2">My Deliveries</h1>
         <p className="text-muted-foreground">Track and manage your assigned deliveries</p>
+        {partner && <p className="text-sm text-muted-foreground">Delivery Partner ID: {partner.id}</p>}
       </div>
+
+      {error && (
+        <Card className="bg-red-50">
+          <CardContent className="p-4">
+            <p className="text-red-600">Error loading deliveries: {error.message}</p>
+          </CardContent>
+        </Card>
+      )}
 
       {!deliveries || deliveries.length === 0 ? (
         <Card>
@@ -83,6 +110,7 @@ export default async function MyDeliveriesPage() {
                       <p className="text-sm text-muted-foreground">
                         {delivery.retailer?.address}, {delivery.retailer?.city}, {delivery.retailer?.pincode}
                       </p>
+                      <p className="text-sm text-muted-foreground">Phone: {delivery.retailer?.phone}</p>
                     </div>
                   </div>
 

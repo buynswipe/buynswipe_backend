@@ -90,24 +90,15 @@ export async function POST(request: Request) {
 
       // If there's a delivery partner and status is dispatched, notify them too
       if (status === "dispatched" && order.delivery_partner_id) {
-        // First get the delivery partner to find their user_id
-        const { data: deliveryPartner } = await supabase
-          .from("delivery_partners")
-          .select("user_id")
-          .eq("id", order.delivery_partner_id)
-          .single()
-
-        if (deliveryPartner && deliveryPartner.user_id) {
-          await createServerNotification({
-            user_id: deliveryPartner.user_id,
-            title: "Order Ready for Pickup",
-            message: `Order #${orderNumber} is ready for pickup and delivery.`,
-            type: "info",
-            entity_type: "order",
-            entity_id: orderId,
-            action_url: `/delivery-partner/active`,
-          })
-        }
+        await createServerNotification({
+          user_id: order.delivery_partner_id,
+          title: "Order Ready for Pickup",
+          message: `Order #${orderNumber} is ready for pickup and delivery.`,
+          type: "info",
+          entity_type: "order",
+          entity_id: orderId,
+          action_url: `/delivery-partner/tracking/${orderId}`,
+        })
       }
     } catch (notificationError) {
       console.error("Failed to send status update notifications:", notificationError)
