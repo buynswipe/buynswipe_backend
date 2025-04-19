@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/components/ui/use-toast"
-import { Package, CheckCircle, AlertTriangle } from "lucide-react"
+import { Package, CheckCircle, AlertTriangle, Loader2 } from "lucide-react"
 
 interface StatusUpdaterProps {
   orderId: string
@@ -90,7 +90,10 @@ export function StatusUpdater({ orderId, currentStatus, onStatusUpdate }: Status
 
         <Button className="w-full" onClick={handleSubmit} disabled={isSubmitting || status === currentStatus}>
           {isSubmitting ? (
-            <>Processing...</>
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Updating...
+            </>
           ) : status === "delivered" ? (
             <>
               <CheckCircle className="mr-2 h-4 w-4" />

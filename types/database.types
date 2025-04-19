@@ -90,7 +90,6 @@ export interface DeliveryPartner {
   rating?: number | null
 }
 
-// Database type definition
 export type Database = {
   public: {
     Tables: {

@@ -1,31 +1,20 @@
 "use client"
 
+import { CardFooter } from "@/components/ui/card"
+
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import type { Order, UserProfile, OrderItem, Product, DeliveryPartner } from "@/types/database.types"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import {
-  Loader2,
-  Store,
-  Package,
-  ArrowLeft,
-  CreditCard,
-  Truck,
-  CheckCircle,
-  Clock,
-  Phone,
-  MessageSquare,
-} from "lucide-react"
+import { Loader2, Store, Package, ArrowLeft, CreditCard, Truck, Clock, Phone } from "lucide-react"
 import Link from "next/link"
-import type { Order, UserProfile, OrderItem, Product, DeliveryPartner } from "@/types/database.types"
 
 // Import the PaymentButton component
 import { PaymentButton } from "./payment-button"
-// Import the DocumentActions component
-import { DocumentActions } from "./document-actions"
 // Import the DeliveryTracking component
 import { DeliveryTracking } from "@/components/delivery/delivery-tracking"
 
@@ -78,13 +67,15 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
         // Fetch order with related data
         const { data, error } = await supabase
           .from("orders")
-          .select(`
+          .select(
+            `
             *,
             retailer:profiles!retailer_id(*),
             wholesaler:profiles!wholesaler_id(*),
             order_items(*, product:products(*)),
             delivery_partner:delivery_partners(*)
-          `)
+          `,
+          )
           .eq("id", params.id)
           .single()
 
@@ -93,8 +84,7 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
         // Check if user is authorized to view this order
         if (
           (profile.role === "retailer" && data.retailer_id !== session.user.id) ||
-          (profile.role === "wholesaler" && data.wholesaler_id !== session.user.id) ||
-          (profile.role === "delivery_partner" && data.delivery_partner_id !== session.user.id)
+          (profile.role === "wholesaler" && data.wholesaler_id !== session.user.id)
         ) {
           throw new Error("Unauthorized")
         }
@@ -164,7 +154,7 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
       case "paid":
         return <Badge className="bg-green-100 text-green-800 hover:bg-green-200">Paid</Badge>
       case "pending":
-        return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200">Pending</Badge>
+        return <Badge variant="outline">Pending</Badge>
       default:
         return <Badge variant="outline">{status}</Badge>
     }
@@ -340,20 +330,6 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
               <CardContent>
                 <DeliveryTracking orderId={order.id} />
               </CardContent>
-              {order.delivery_partner && (
-                <CardFooter className="flex flex-col sm:flex-row gap-2">
-                  <Button variant="outline" className="w-full sm:w-auto" asChild>
-                    <Link href={`tel:${order.delivery_partner.phone}`}>
-                      <Phone className="mr-2 h-4 w-4" />
-                      Call Delivery Partner
-                    </Link>
-                  </Button>
-                  <Button variant="outline" className="w-full sm:w-auto">
-                    <MessageSquare className="mr-2 h-4 w-4" />
-                    Send Message
-                  </Button>
-                </CardFooter>
-              )}
             </Card>
           )}
 
@@ -431,23 +407,23 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <Store className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-medium">
-                    {userRole === "retailer" ? order.wholesaler.business_name : order.retailer.business_name}
-                  </span>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm">
-                    {userRole === "retailer" ? order.wholesaler.address : order.retailer.address}
-                  </p>
-                  <p className="text-sm">
-                    {userRole === "retailer" ? order.wholesaler.city : order.retailer.city},{" "}
-                    {userRole === "retailer" ? order.wholesaler.pincode : order.retailer.pincode}
-                  </p>
-                  <p className="text-sm">
-                    Phone: {userRole === "retailer" ? order.wholesaler.phone : order.retailer.phone}
-                  </p>
+                <div className="flex items-start gap-2">
+                  <Store className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                  <div>
+                    <p className="font-medium">
+                      {userRole === "retailer" ? order.wholesaler.business_name : order.retailer.business_name}
+                    </p>
+                    <p className="text-sm">
+                      {userRole === "retailer" ? order.wholesaler.address : order.retailer.address}
+                    </p>
+                    <p className="text-sm">
+                      {userRole === "retailer" ? order.wholesaler.city : order.retailer.city},{" "}
+                      {userRole === "retailer" ? order.wholesaler.pincode : order.retailer.pincode}
+                    </p>
+                    <p className="text-sm">
+                      Phone: {userRole === "retailer" ? order.wholesaler.phone : order.retailer.phone}
+                    </p>
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -476,9 +452,7 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Payment Status:</span>
                   <span
-                    className={
-                      order.payment_status === "paid" ? "text-green-600 font-medium" : "text-yellow-600 font-medium"
-                    }
+                    className={`font-medium ${order.payment_status === "paid" ? "text-green-600" : "text-yellow-600"}`}
                   >
                     {order.payment_status.charAt(0).toUpperCase() + order.payment_status.slice(1)}
                   </span>
@@ -489,89 +463,7 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
                 </div>
               </div>
             </CardContent>
-            {userRole === "retailer" && order.payment_method === "upi" && order.payment_status === "pending" && (
-              <CardFooter>
-                <Button className="w-full" asChild>
-                  <Link href={`/orders/${order.id}/pay`}>
-                    <CreditCard className="mr-2 h-4 w-4" />
-                    Make Payment
-                  </Link>
-                </Button>
-              </CardFooter>
-            )}
-
-            {userRole === "wholesaler" &&
-              order.payment_method === "cod" &&
-              order.payment_status === "pending" &&
-              order.status === "delivered" && (
-                <CardFooter>
-                  <PaymentButton
-                    order={order}
-                    onPaymentComplete={() => {
-                      // Update local state
-                      setOrder((prevOrder) => {
-                        if (!prevOrder) return null
-                        return {
-                          ...prevOrder,
-                          payment_status: "paid",
-                        }
-                      })
-                    }}
-                  />
-                </CardFooter>
-              )}
           </Card>
-
-          {/* Add the DocumentActions component */}
-          {userRole && order && <DocumentActions order={order} userRole={userRole} />}
-
-          {userRole === "wholesaler" && order.status === "confirmed" && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Actions</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Button className="w-full" asChild>
-                  <Link href={`/order-management?tab=confirmed`}>
-                    <Truck className="mr-2 h-4 w-4" />
-                    Dispatch Order
-                  </Link>
-                </Button>
-                {!order.delivery_partner && (
-                  <Button variant="outline" className="w-full" asChild>
-                    <Link href={`/order-management?tab=confirmed`}>
-                      <Truck className="mr-2 h-4 w-4" />
-                      Assign Delivery Partner
-                    </Link>
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {userRole === "wholesaler" && order.status === "dispatched" && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Actions</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Button className="w-full" asChild>
-                  <Link href={`/order-management?tab=dispatched`}>
-                    <CheckCircle className="mr-2 h-4 w-4" />
-                    Mark as Delivered
-                  </Link>
-                </Button>
-                {!order.delivery_partner && (
-                  <Button variant="outline" className="w-full" asChild>
-                    <Link href={`/order-management?tab=dispatched`}>
-                      <Truck className="mr-2 h-4 w-4" />
-                      Assign Delivery Partner
-                    </Link>
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          )}
         </div>
       </div>
     </div>

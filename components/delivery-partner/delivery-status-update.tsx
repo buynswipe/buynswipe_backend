@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { Loader2, Truck, Package, CheckCircle } from "lucide-react"
-import { toast } from "@/components/ui/use-toast"
+import { useToast } from "@/hooks/use-toast"
 import { notifyDeliveryStatusUpdate } from "@/lib/delivery-notification-helper"
 
 interface DeliveryStatusUpdateProps {
@@ -19,11 +19,12 @@ interface DeliveryStatusUpdateProps {
 }
 
 export function DeliveryStatusUpdate({ orderId, currentStatus }: DeliveryStatusUpdateProps) {
-  const [status, setStatus] = useState("")
+  const [status, setStatus] = useState(currentStatus)
   const [notes, setNotes] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const router = useRouter()
   const supabase = createClientComponentClient()
+  const { toast } = useToast()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -123,8 +124,13 @@ export function DeliveryStatusUpdate({ orderId, currentStatus }: DeliveryStatusU
       // Send notifications about the status update
       try {
         await notifyDeliveryStatusUpdate(orderId, status, partner.id)
-      } catch (notificationError) {
+      } catch (notificationError: any) {
         console.error("Failed to send status update notifications:", notificationError)
+        toast({
+          title: "Notification Error",
+          description: notificationError.message || "Failed to send status update notifications",
+          variant: "destructive",
+        })
         // Continue anyway
       }
 
@@ -210,7 +216,7 @@ export function DeliveryStatusUpdate({ orderId, currentStatus }: DeliveryStatusU
             />
           </div>
 
-          <Button type="submit" disabled={isSubmitting} className="w-full">
+          <Button type="submit" disabled={isSubmitting || status === currentStatus} className="w-full">
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

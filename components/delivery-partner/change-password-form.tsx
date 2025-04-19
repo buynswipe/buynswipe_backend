@@ -1,133 +1,102 @@
 "use client"
 
+import type React from "react"
+
 import { useState } from "react"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm } from "react-hook-form"
-import * as z from "zod"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { toast } from "@/components/ui/use-toast"
+import { Label } from "@/components/ui/label"
+import { CardContent } from "@/components/ui/card"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Loader2 } from "lucide-react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
-const passwordFormSchema = z
-  .object({
-    currentPassword: z.string().min(6, {
-      message: "Password must be at least 6 characters.",
-    }),
-    newPassword: z.string().min(6, {
-      message: "Password must be at least 6 characters.",
-    }),
-    confirmPassword: z.string().min(6, {
-      message: "Password must be at least 6 characters.",
-    }),
-  })
-  .refine((data) => data.newPassword === data.confirmPassword, {
-    message: "Passwords don't match",
-    path: ["confirmPassword"],
-  })
-
-type PasswordFormValues = z.infer<typeof passwordFormSchema>
-
-interface ChangePasswordFormProps {
-  onSuccess?: () => void
-}
-
-export function ChangePasswordForm({ onSuccess }: ChangePasswordFormProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false)
+export function ChangePasswordForm() {
+  const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+  const router = useRouter()
   const supabase = createClientComponentClient()
 
-  const form = useForm<PasswordFormValues>({
-    resolver: zodResolver(passwordFormSchema),
-    defaultValues: {
-      currentPassword: "",
-      newPassword: "",
-      confirmPassword: "",
-    },
-  })
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
 
-  async function onSubmit(data: PasswordFormValues) {
-    setIsSubmitting(true)
+    if (password !== confirmPassword) {
+      setError("Passwords do not match")
+      return
+    }
+
+    setIsLoading(true)
+    setError(null)
+    setSuccess(null)
+
     try {
-      // Update password using Supabase Auth
-      const { error } = await supabase.auth.updateUser({
-        password: data.newPassword,
-      })
+      const { error } = await supabase.auth.updateUser({ password })
 
       if (error) {
         throw new Error(error.message)
       }
 
-      toast({
-        title: "Password Updated",
-        description: "Your password has been updated successfully.",
-      })
+      setSuccess("Password updated successfully!")
+      setPassword("")
+      setConfirmPassword("")
 
-      form.reset()
-
-      if (onSuccess) {
-        onSuccess()
-      }
+      // Refresh the page to reflect the changes
+      router.refresh()
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update password",
-        variant: "destructive",
-      })
+      setError(error.message)
     } finally {
-      setIsSubmitting(false)
+      setIsLoading(false)
     }
   }
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <FormField
-          control={form.control}
-          name="currentPassword"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Current Password</FormLabel>
-              <FormControl>
-                <Input type="password" placeholder="Your current password" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
+    <CardContent className="space-y-4">
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+      {success && (
+        <Alert className="bg-green-50 text-green-800 border-green-200">
+          <AlertDescription>{success}</AlertDescription>
+        </Alert>
+      )}
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="password">New Password</Label>
+          <Input
+            id="password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="confirm-password">Confirm New Password</Label>
+          <Input
+            id="confirm-password"
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            required
+          />
+        </div>
+        <Button disabled={isLoading} className="w-full">
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Updating...
+            </>
+          ) : (
+            "Update Password"
           )}
-        />
-
-        <FormField
-          control={form.control}
-          name="newPassword"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>New Password</FormLabel>
-              <FormControl>
-                <Input type="password" placeholder="Your new password" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="confirmPassword"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Confirm New Password</FormLabel>
-              <FormControl>
-                <Input type="password" placeholder="Confirm your new password" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Updating..." : "Update Password"}
         </Button>
       </form>
-    </Form>
+    </CardContent>
   )
 }

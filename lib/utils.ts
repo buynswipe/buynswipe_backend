@@ -6,6 +6,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatDate(dateString: string): string {
+  if (!dateString) return "N/A"
   const date = new Date(dateString)
   return new Intl.DateTimeFormat("en-IN", {
     day: "numeric",

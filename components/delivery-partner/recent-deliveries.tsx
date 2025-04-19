@@ -1,40 +1,45 @@
-import { Button } from "@/components/ui/button"
-import Link from "next/link"
-import type { Order } from "@/types/database.types"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Clock, MapPin } from "lucide-react"
 
 interface RecentDeliveriesProps {
   title: string
-  deliveries: Order[]
+  deliveries: any[]
   limit?: number
 }
 
 export function RecentDeliveries({ title, deliveries, limit = 5 }: RecentDeliveriesProps) {
-  const displayDeliveries = deliveries.slice(0, limit)
+  const limitedDeliveries = deliveries.slice(0, limit)
 
   return (
-    <div>
-      <h2 className="text-xl font-semibold mb-4">{title}</h2>
-      <div className="space-y-4">
-        {displayDeliveries.map((delivery) => (
-          <div key={delivery.id} className="border rounded-lg p-4 flex justify-between items-center">
-            <div>
-              <p className="font-medium">Order #{delivery.id.substring(0, 8)}</p>
-              <p className="text-sm text-muted-foreground">Status: {delivery.status}</p>
-            </div>
-            <Button asChild size="sm">
-              <Link href={`/delivery/tracking/${delivery.id}`}>View Details</Link>
-            </Button>
+    <Card>
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {limitedDeliveries.length === 0 ? (
+          <div className="text-center py-4">
+            <p className="text-muted-foreground">No recent deliveries</p>
           </div>
-        ))}
-      </div>
-
-      {deliveries.length > limit && (
-        <div className="mt-4 text-center">
-          <Button asChild variant="outline">
-            <Link href={title.includes("Active") ? "/delivery/active" : "/delivery/completed"}>View All {title}</Link>
-          </Button>
-        </div>
-      )}
-    </div>
+        ) : (
+          limitedDeliveries.map((delivery) => (
+            <div key={delivery.id} className="flex items-center justify-between">
+              <div className="flex items-start gap-2">
+                <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                <div>
+                  <p className="font-medium">{delivery.retailer?.business_name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {delivery.retailer?.address}, {delivery.retailer?.city}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">{new Date(delivery.created_at).toLocaleDateString()}</p>
+              </div>
+            </div>
+          ))
+        )}
+      </CardContent>
+    </Card>
   )
 }

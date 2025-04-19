@@ -1,218 +1,155 @@
 "use client"
 
+import type React from "react"
+
 import { useState } from "react"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm } from "react-hook-form"
-import * as z from "zod"
-import { Button } from "@/components/ui/button"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { toast } from "@/components/ui/use-toast"
 import { useRouter } from "next/navigation"
-
-const profileFormSchema = z.object({
-  fullName: z.string().min(2, {
-    message: "Name must be at least 2 characters.",
-  }),
-  phone: z.string().min(10, {
-    message: "Phone number must be at least 10 digits.",
-  }),
-  vehicleType: z.string({
-    required_error: "Vehicle type is required.",
-  }),
-  vehicleNumber: z.string().min(3, {
-    message: "Vehicle number must be at least 3 characters.",
-  }),
-  address: z.string().min(5, {
-    message: "Address must be at least 5 characters.",
-  }),
-  city: z.string().min(2, {
-    message: "City must be at least 2 characters.",
-  }),
-  pincode: z.string().min(6, {
-    message: "Pincode must be at least 6 characters.",
-  }),
-})
-
-type ProfileFormValues = z.infer<typeof profileFormSchema>
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { CardContent } from "@/components/ui/card"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Loader2 } from "lucide-react"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
 interface ProfileEditFormProps {
   initialData: {
-    fullName: string
+    id: string
+    email: string
+    business_name: string
     phone: string
-    vehicleType: string
-    vehicleNumber: string
     address: string
     city: string
     pincode: string
+    vehicle_type: string
+    vehicle_number: string
   }
-  onSuccess?: () => void
 }
 
-export function ProfileEditForm({ initialData, onSuccess }: ProfileEditFormProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false)
+export function ProfileEditForm({ initialData }: ProfileEditFormProps) {
+  const [fullName, setFullName] = useState(initialData.business_name)
+  const [phone, setPhone] = useState(initialData.phone)
+  const [vehicleType, setVehicleType] = useState(initialData.vehicle_type)
+  const [vehicleNumber, setVehicleNumber] = useState(initialData.vehicle_number)
+  const [address, setAddress] = useState(initialData.address)
+  const [city, setCity] = useState(initialData.city)
+  const [pincode, setPincode] = useState(initialData.pincode)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
   const router = useRouter()
+  const supabase = createClientComponentClient()
 
-  const form = useForm<ProfileFormValues>({
-    resolver: zodResolver(profileFormSchema),
-    defaultValues: initialData,
-  })
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
 
-  async function onSubmit(data: ProfileFormValues) {
-    setIsSubmitting(true)
+    setIsLoading(true)
+    setError(null)
+    setSuccess(null)
+
     try {
-      // Use the Pages Router API endpoint
       const response = await fetch("/api/delivery-partner/profile", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          fullName,
+          phone,
+          vehicleType,
+          vehicleNumber,
+          address,
+          city,
+          pincode,
+        }),
       })
 
-      const result = await response.json()
+      const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(result.error || "Failed to update profile")
+        throw new Error(data.error || "Failed to update profile")
       }
 
-      toast({
-        title: "Profile Updated",
-        description: "Your profile has been updated successfully.",
-      })
+      setSuccess("Profile updated successfully!")
 
+      // Refresh the page to reflect the changes
       router.refresh()
-
-      if (onSuccess) {
-        onSuccess()
-      }
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update profile",
-        variant: "destructive",
-      })
+      setError(error.message)
     } finally {
-      setIsSubmitting(false)
+      setIsLoading(false)
     }
   }
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <FormField
-          control={form.control}
-          name="fullName"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Full Name</FormLabel>
-              <FormControl>
-                <Input placeholder="Your full name" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
+    <CardContent className="space-y-4">
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+      {success && (
+        <Alert className="bg-green-50 text-green-800 border-green-200">
+          <AlertDescription>{success}</AlertDescription>
+        </Alert>
+      )}
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="fullName">Full Name</Label>
+          <Input id="fullName" type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="phone">Phone Number</Label>
+          <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} required />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="vehicleType">Vehicle Type</Label>
+          <Select value={vehicleType} onValueChange={(value) => setVehicleType(value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select vehicle type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="bike">Bike</SelectItem>
+              <SelectItem value="auto">Auto</SelectItem>
+              <SelectItem value="van">Van</SelectItem>
+              <SelectItem value="truck">Truck</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="vehicleNumber">Vehicle Number</Label>
+          <Input
+            id="vehicleNumber"
+            type="text"
+            value={vehicleNumber}
+            onChange={(e) => setVehicleNumber(e.target.value)}
+            required
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="address">Address</Label>
+          <Input id="address" type="text" value={address} onChange={(e) => setAddress(e.target.value)} required />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="city">City</Label>
+          <Input id="city" type="text" value={city} onChange={(e) => setCity(e.target.value)} required />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="pincode">Pincode</Label>
+          <Input id="pincode" type="text" value={pincode} onChange={(e) => setPincode(e.target.value)} required />
+        </div>
+        <Button disabled={isLoading} className="w-full">
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Updating...
+            </>
+          ) : (
+            "Update Profile"
           )}
-        />
-
-        <FormField
-          control={form.control}
-          name="phone"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Phone Number</FormLabel>
-              <FormControl>
-                <Input placeholder="Your phone number" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="vehicleType"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Vehicle Type</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select vehicle type" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="bike">Bike</SelectItem>
-                  <SelectItem value="auto">Auto</SelectItem>
-                  <SelectItem value="van">Van</SelectItem>
-                  <SelectItem value="truck">Truck</SelectItem>
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="vehicleNumber"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Vehicle Number</FormLabel>
-              <FormControl>
-                <Input placeholder="Vehicle registration number" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="address"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Address</FormLabel>
-              <FormControl>
-                <Input placeholder="Your address" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="city"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>City</FormLabel>
-              <FormControl>
-                <Input placeholder="Your city" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="pincode"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Pincode</FormLabel>
-              <FormControl>
-                <Input placeholder="Your pincode" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Updating..." : "Update Profile"}
         </Button>
       </form>
-    </Form>
+    </CardContent>
   )
 }

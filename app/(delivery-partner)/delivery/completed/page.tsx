@@ -1,22 +1,19 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { Truck, MapPin, Package, User } from "lucide-react"
+import { CheckCircle, MapPin, Package, User } from "lucide-react"
 
-export default function ActiveDeliveriesPage() {
+export default function CompletedDeliveriesPage() {
   const [deliveries, setDeliveries] = useState([])
   const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const supabase = createClientComponentClient()
-  const router = useRouter()
 
   useEffect(() => {
-    const fetchActiveDeliveries = async () => {
+    const fetchCompletedDeliveries = async () => {
       try {
         setIsLoading(true)
 
@@ -40,46 +37,63 @@ export default function ActiveDeliveriesPage() {
           throw new Error("Delivery partner not found")
         }
 
-        // Get active deliveries
+        // Get completed deliveries
         const { data } = await supabase
           .from("orders")
           .select(`
             *,
-            retailer:profiles!retailer_id(business_name, address, city, pincode),
+            retailer:retailer_id(business_name, address, city, pincode),
             wholesaler:wholesaler_id(business_name, address, city, pincode)
           `)
           .eq("delivery_partner_id", partner.id)
-          .in("status", ["dispatched", "picked_up", "in_transit"])
+          .eq("status", "delivered")
           .order("created_at", { ascending: false })
 
         setDeliveries(data || [])
-      } catch (error: any) {
-        setError(error.message)
+      } catch (error) {
+        console.error("Error fetching completed deliveries:", error)
       } finally {
         setIsLoading(false)
       }
     }
 
-    fetchActiveDeliveries()
+    fetchCompletedDeliveries()
   }, [supabase])
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold mb-2">Active Deliveries</h1>
-        <p className="text-muted-foreground">Manage your ongoing deliveries.</p>
-      </div>
-
-      {!deliveries || deliveries.length === 0 ? (
-        <div className="text-center py-12">
-          <Truck className="mx-auto h-12 w-12 text-muted-foreground" />
-          <h2 className="mt-4 text-lg font-medium">No active deliveries</h2>
-          <p className="text-muted-foreground">You don't have any active deliveries at the moment.</p>
+  if (isLoading) {
+    return (
+      <div className="p-8">
+        <h1 className="text-2xl font-bold mb-6">Completed Deliveries</h1>
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <Card key={i} className="w-full">
+              <CardContent className="p-8">
+                <div className="h-4 w-full bg-gray-200 rounded animate-pulse mb-2"></div>
+                <div className="h-4 w-2/3 bg-gray-200 rounded animate-pulse"></div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="p-8">
+      <h1 className="text-2xl font-bold mb-6">Completed Deliveries</h1>
+
+      {deliveries.length === 0 ? (
+        <Card>
+          <CardContent className="p-8 text-center">
+            <CheckCircle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <h2 className="text-xl font-medium mb-2">No completed deliveries</h2>
+            <p className="text-muted-foreground">You haven't completed any deliveries yet.</p>
+          </CardContent>
+        </Card>
       ) : (
         <div className="space-y-4">
           {deliveries.map((delivery) => (
-            <Card key={delivery.id}>
+            <Card key={delivery.id} className="w-full">
               <CardContent className="p-6">
                 <div className="flex flex-col md:flex-row justify-between gap-4">
                   <div className="space-y-2">
@@ -106,14 +120,11 @@ export default function ActiveDeliveriesPage() {
                   </div>
 
                   <div className="flex flex-col gap-2 md:items-end justify-center">
-                    <div className="px-3 py-1 rounded-full bg-blue-100 text-blue-800 text-sm font-medium">
-                      {delivery.status.charAt(0).toUpperCase() + delivery.status.slice(1)}
+                    <div className="px-3 py-1 rounded-full bg-green-100 text-green-800 text-sm font-medium">
+                      Delivered
                     </div>
                     <Button asChild className="mt-2">
-                      <Link href={`/delivery/tracking/${delivery.id}`}>
-                        <Truck className="mr-2 h-4 w-4" />
-                        Manage Delivery
-                      </Link>
+                      <Link href={`/delivery/tracking/${delivery.id}`}>Track Delivery</Link>
                     </Button>
                   </div>
                 </div>
