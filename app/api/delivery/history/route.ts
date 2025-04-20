@@ -22,8 +22,11 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (partnerError) {
+      console.error("Error finding delivery partner:", partnerError)
       return NextResponse.json({ error: "Delivery partner not found" }, { status: 404 })
     }
+
+    console.log(`Found delivery partner with ID ${partner.id} for user ${session.user.id}`)
 
     const url = new URL(request.url)
     const status = url.searchParams.get("status") || "delivered"
@@ -41,8 +44,11 @@ export async function GET(request: NextRequest) {
       .order("created_at", { ascending: false })
 
     if (deliveriesError) {
+      console.error("Error fetching deliveries:", deliveriesError)
       return NextResponse.json({ error: "Failed to fetch deliveries" }, { status: 500 })
     }
+
+    console.log(`Found ${deliveries?.length || 0} ${status} deliveries for partner ${partner.id}`)
 
     return NextResponse.json({
       success: true,

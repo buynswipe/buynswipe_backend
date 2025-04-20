@@ -50,17 +50,27 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
       if (!session) return
 
-      const { data, error: notificationsError } = await supabase
-        .from("notifications")
-        .select("*")
-        .eq("user_id", session.user.id)
-        .order("created_at", { ascending: false })
-        .limit(50)
+      // Fix: Handle potential UUID format issues by using proper error handling
+      try {
+        const { data, error: notificationsError } = await supabase
+          .from("notifications")
+          .select("*")
+          .eq("user_id", session.user.id)
+          .order("created_at", { ascending: false })
+          .limit(50)
 
-      if (notificationsError) throw notificationsError
+        if (notificationsError) {
+          console.error("Error fetching notifications:", notificationsError)
+          setError("Failed to load notifications. Please try again.")
+          return
+        }
 
-      setNotifications(data || [])
-      setUnreadCount(data?.filter((n: Notification) => !n.is_read).length || 0)
+        setNotifications(data || [])
+        setUnreadCount(data?.filter((n: Notification) => !n.is_read).length || 0)
+      } catch (err: any) {
+        console.error("Error processing notifications:", err)
+        setError("Failed to process notifications data")
+      }
     } catch (error: any) {
       console.error("Error fetching notifications:", error)
       setError(error.message)
@@ -147,38 +157,42 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
       if (!session) return
 
-      const subscription = supabase
-        .channel(`user-notifications-${session.user.id}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "INSERT",
-            schema: "public",
-            table: "notifications",
-            filter: `user_id=eq.${session.user.id}`,
-          },
-          (payload) => {
-            // Add new notification to state
-            const newNotification = payload.new as Notification
-            setNotifications((prev) => [newNotification, ...prev])
-            setUnreadCount((prev) => prev + 1)
+      try {
+        const subscription = supabase
+          .channel(`user-notifications-${session.user.id}`)
+          .on(
+            "postgres_changes",
+            {
+              event: "INSERT",
+              schema: "public",
+              table: "notifications",
+              filter: `user_id=eq.${session.user.id}`,
+            },
+            (payload) => {
+              // Add new notification to state
+              const newNotification = payload.new as Notification
+              setNotifications((prev) => [newNotification, ...prev])
+              setUnreadCount((prev) => prev + 1)
 
-            // Show toast notification
-            toast({
-              title: newNotification.title,
-              description: newNotification.message,
-            })
-          },
-        )
-        .subscribe()
+              // Show toast notification
+              toast({
+                title: newNotification.title,
+                description: newNotification.message,
+              })
+            },
+          )
+          .subscribe()
 
-      return () => {
-        subscription.unsubscribe()
+        return () => {
+          subscription.unsubscribe()
+        }
+      } catch (err) {
+        console.error("Error setting up notification subscription:", err)
       }
     }
 
     setupSubscription()
-  }, [supabase])
+  }, [supabase, toast])
 
   // Load notifications on mount
   useEffect(() => {

@@ -25,16 +25,19 @@ export default async function MyDeliveriesPage() {
   // Get delivery partner info
   const { data: partner } = await supabase.from("delivery_partners").select("*").eq("user_id", session.user.id).single()
 
-  // Get assigned orders
+  // Get assigned orders - FIXED: Include all relevant statuses including "dispatched"
   const { data: deliveries } = await supabase
     .from("orders")
     .select(`
-      *,
-      retailer:retailer_id(business_name, address, city, pincode, phone)
-    `)
+    *,
+    retailer:profiles!retailer_id(business_name, address, city, pincode, phone)
+  `)
     .eq("delivery_partner_id", partner?.id || "")
-    .in("status", ["confirmed", "dispatched", "in_transit"])
+    .in("status", ["confirmed", "dispatched", "in_transit", "assigned"]) // Make sure "dispatched" is included
     .order("created_at", { ascending: false })
+
+  // Add logging to help with debugging
+  console.log(`Found ${deliveries?.length || 0} deliveries for partner ${partner?.id}`)
 
   const getStatusBadge = (status: string) => {
     switch (status) {

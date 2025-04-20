@@ -97,16 +97,50 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         query = query.eq("wholesaler_id", userId)
       } else if (userRole === "delivery_partner") {
         // First get the delivery partner id
-        const { data: partner } = await supabase.from("delivery_partners").select("id").eq("user_id", userId).single()
+        const { data: partner, error: partnerError } = await supabase
+          .from("delivery_partners")
+          .select("id")
+          .eq("user_id", userId)
+          .single()
+
+        if (partnerError) {
+          console.error("Error finding delivery partner:", partnerError)
+          setError("Could not find your delivery partner profile")
+          setIsLoading(false)
+          return
+        }
 
         if (partner) {
+          console.log(`Found delivery partner with ID ${partner.id} for user ${userId}`)
+
+          // FIX: Ensure we're properly filtering by delivery_partner_id
           query = query.eq("delivery_partner_id", partner.id)
+
+          // Log the query being executed
+          const { data: orderCount } = await supabase
+            .from("orders")
+            .select("id", { count: "exact" })
+            .eq("delivery_partner_id", partner.id)
+
+          console.log(`Total orders assigned to delivery partner ${partner.id}: ${orderCount?.length || 0}`)
+        } else {
+          console.error("No delivery partner found for user ID:", userId)
+          setError("No delivery partner profile found for your account")
+          setIsLoading(false)
+          return
         }
       }
 
       const { data, error: ordersError } = await query.order("created_at", { ascending: false })
 
       if (ordersError) throw ordersError
+
+      console.log(`Fetched ${data?.length || 0} orders for ${userRole} with ID ${userId}`)
+
+      // Log the first few orders for debugging
+      if (data && data.length > 0) {
+        console.log("Sample order data:", data[0])
+      }
 
       setOrders(data || [])
     } catch (error: any) {
@@ -284,12 +318,30 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         throw new Error(data.error || "Failed to assign delivery partner")
       }
 
-      // Update local state
-      await fetchOrders()
+      // Update local state - also update the status to match our API changes
+      setOrders((prevOrders) =>
+        prevOrders.map((order) =>
+          order.id === orderId
+            ? {
+                ...order,
+                delivery_partner_id: partnerId,
+                status: "dispatched", // Update local state to match API behavior
+              }
+            : order,
+        ),
+      )
 
-      // If we have an active order, refresh it
+      // If we have an active order, update it directly
       if (activeOrder?.id === orderId) {
-        await fetchOrderById(orderId)
+        setActiveOrder((prev) =>
+          prev
+            ? {
+                ...prev,
+                delivery_partner_id: partnerId,
+                status: "dispatched", // Update active order to match API behavior
+              }
+            : null,
+        )
       }
 
       toast({

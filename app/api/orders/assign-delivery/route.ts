@@ -83,18 +83,41 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized to use this delivery partner" }, { status: 403 })
     }
 
-    // Update order with delivery partner and instructions
+    // Update order with delivery partner, instructions, and status
     const { error: updateError } = await supabase
       .from("orders")
       .update({
         delivery_partner_id: deliveryPartnerId,
         delivery_instructions: instructions || null,
+        status: "dispatched", // Automatically set status to dispatched when assigning delivery partner
       })
       .eq("id", orderId)
+
+    // Log the update result
+    console.log(`Order ${orderId} assigned to delivery partner ${deliveryPartnerId} with status set to dispatched`)
 
     if (updateError) {
       console.error("Error updating order:", updateError)
       return NextResponse.json({ error: "Failed to assign delivery partner" }, { status: 500 })
+    }
+
+    // Verify the update was successful by fetching the order again
+    const { data: updatedOrder, error: verifyError } = await supabase
+      .from("orders")
+      .select("delivery_partner_id, status")
+      .eq("id", orderId)
+      .single()
+
+    if (verifyError) {
+      console.error("Error verifying update:", verifyError)
+    } else {
+      console.log("Updated order:", updatedOrder)
+      if (updatedOrder.delivery_partner_id !== deliveryPartnerId) {
+        console.error("Delivery partner ID mismatch after update!")
+      }
+      if (updatedOrder.status !== "dispatched") {
+        console.error("Status not set to dispatched after update!")
+      }
     }
 
     // Send notifications about delivery partner assignment
@@ -111,6 +134,12 @@ export async function POST(request: NextRequest) {
           related_entity_type: "delivery",
           related_entity_id: orderId,
           action_url: `/delivery-partner/tracking/${orderId}`,
+          data: {
+            address: order.retailer.address,
+            city: order.retailer.city,
+            pincode: order.retailer.pincode,
+            phone: order.retailer.phone,
+          },
         })
       }
 
@@ -123,6 +152,12 @@ export async function POST(request: NextRequest) {
         related_entity_type: "delivery",
         related_entity_id: orderId,
         action_url: `/orders/${orderId}`,
+        data: {
+          delivery_partner_name: deliveryPartner.name,
+          vehicle_type: deliveryPartner.vehicle_type,
+          vehicle_number: deliveryPartner.vehicle_number,
+          phone: deliveryPartner.phone,
+        },
       })
 
       // Notification to wholesaler (for record)

@@ -9,17 +9,17 @@ import { MapPin, Phone, Clock, CreditCard } from "lucide-react"
 
 type Delivery = {
   id: string
-  order_number: string
   status: string
   created_at: string
-  delivery_address: string
-  delivery_city: string
-  delivery_pincode: string
   total_amount: number
   payment_method: string
   payment_status: string
-  profiles: {
+  delivery_partner_id: string
+  retailer: {
     business_name: string
+    address: string
+    city: string
+    pincode: string
     phone: string
   }
 }
@@ -39,7 +39,7 @@ export function DeliveryList({ deliveries }: { deliveries: Delivery[] }) {
         <Card key={delivery.id}>
           <CardHeader className="pb-2">
             <div className="flex justify-between items-center">
-              <CardTitle className="text-lg">Order #{delivery.order_number}</CardTitle>
+              <CardTitle className="text-lg">Order #{delivery.id}</CardTitle>
               <Badge variant={getStatusVariant(delivery.status)}>{delivery.status}</Badge>
             </div>
             <CardDescription>{formatDistanceToNow(new Date(delivery.created_at), { addSuffix: true })}</CardDescription>
@@ -49,12 +49,12 @@ export function DeliveryList({ deliveries }: { deliveries: Delivery[] }) {
               <div className="flex items-start gap-2">
                 <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground" />
                 <div className="text-sm">
-                  {delivery.delivery_address}, {delivery.delivery_city}, {delivery.delivery_pincode}
+                  {delivery.retailer.address}, {delivery.retailer.city}, {delivery.retailer.pincode}
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <Phone className="h-4 w-4 text-muted-foreground" />
-                <div className="text-sm">{delivery.profiles.phone}</div>
+                <div className="text-sm">{delivery.retailer.phone}</div>
               </div>
               <div className="flex items-center gap-2">
                 <CreditCard className="h-4 w-4 text-muted-foreground" />
@@ -64,7 +64,7 @@ export function DeliveryList({ deliveries }: { deliveries: Delivery[] }) {
               </div>
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-muted-foreground" />
-                <div className="text-sm">{delivery.profiles.business_name}</div>
+                <div className="text-sm">{delivery.retailer.business_name}</div>
               </div>
             </div>
           </CardContent>

@@ -30,8 +30,8 @@ export default async function MyDeliveriesPage() {
     .from("orders")
     .select(`
      *,
-     retailer:retailer_id(business_name, address, city, pincode),
-     wholesaler:wholesaler_id(business_name, address, city, pincode)
+     retailer:profiles!retailer_id(business_name, address, city, pincode),
+     wholesaler:profiles!wholesaler_id(business_name, address, city, pincode)
    `)
     .eq("delivery_partner_id", partner?.id || "")
     .in("status", ["confirmed", "dispatched", "in_transit"])
