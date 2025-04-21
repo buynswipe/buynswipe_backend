@@ -32,8 +32,10 @@ export async function POST(request: Request) {
       .eq("id", session.user.id)
       .single()
 
-    if (profileError || !profile || profile.role !== "admin") {
-      return NextResponse.json({ error: "Unauthorized. Admin access required." }, { status: 403 })
+    if (profileError) throw profileError
+
+    if (profile.role !== "admin") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
 
     // Create a Supabase admin client
@@ -72,16 +74,16 @@ export async function POST(request: Request) {
 
             // Create the table using multiple separate statements
             const createTableSQL = `
-              CREATE TABLE IF NOT EXISTS user_integrations (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-                user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-                provider VARCHAR(50) NOT NULL,
-                token_data JSONB NOT NULL,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-                updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-                UNIQUE(user_id, provider)
-              );
-            `
+             CREATE TABLE IF NOT EXISTS user_integrations (
+               id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+               user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+               provider VARCHAR(50) NOT NULL,
+               token_data JSONB NOT NULL,
+               created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+               updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+               UNIQUE(user_id, provider)
+             );
+           `
 
             // Execute the SQL using the REST API
             const createTableResponse = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/`, {
@@ -114,6 +116,9 @@ export async function POST(request: Request) {
             { status: 500 },
           )
         }
+      case "fix-notifications-schema":
+        migrationPath = path.join(process.cwd(), "scripts/fix-notifications-schema.ts")
+        break
       default:
         return NextResponse.json({ error: `Unknown migration: ${migration}` }, { status: 400 })
     }

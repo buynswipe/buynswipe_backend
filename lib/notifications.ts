@@ -10,8 +10,8 @@ export interface Notification {
   type: string
   is_read: boolean
   created_at: string
-  related_entity_type?: string
-  related_entity_id?: string
+  related_entity_type?: string | null // Make related_entity_type nullable
+  related_entity_id?: string | null // Make related_entity_id nullable
   action_url?: string
   data?: Record<string, any>
 }

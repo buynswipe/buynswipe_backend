@@ -11,6 +11,10 @@ export async function POST(request: NextRequest) {
       data: { session },
     } = await supabase.auth.getSession()
 
+    if (!session.user.id) {
+      return NextResponse.json({ error: "User ID is missing" }, { status: 400 })
+    }
+
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
@@ -29,6 +33,10 @@ export async function POST(request: NextRequest) {
       .select("role")
       .eq("id", session.user.id)
       .single()
+
+    if (!session.user.id) {
+      return NextResponse.json({ error: "User ID is missing" }, { status: 400 })
+    }
 
     if (profileError) {
       console.error("Error fetching user profile:", profileError)

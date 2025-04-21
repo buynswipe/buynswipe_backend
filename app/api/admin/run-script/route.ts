@@ -16,6 +16,10 @@ export async function POST(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser()
 
+    if (!user.id) {
+      return NextResponse.json({ error: "User ID is missing" }, { status: 400 })
+    }
+
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }

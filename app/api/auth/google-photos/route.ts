@@ -21,6 +21,14 @@ export async function GET(request: Request) {
       return NextResponse.json({ message: "Authentication error: " + userError.message }, { status: 401 })
     }
 
+    if (!user.id) {
+      return NextResponse.json({ error: "User ID is missing" }, { status: 400 })
+    }
+
+    if (!user) {
+      return NextResponse.json({ error: "User ID is missing" }, { status: 400 })
+    }
+
     if (!user) {
       console.error("No user found")
       return NextResponse.json({ message: "Unauthorized - Please log in" }, { status: 401 })

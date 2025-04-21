@@ -31,21 +31,12 @@ export function NotificationItem({ notification, onClose }: NotificationItemProp
       await markAsRead(notification.id)
     }
 
-    // Navigate based on notification type
-    if (notification.related_entity_type === "order" && notification.related_entity_id) {
-      router.push(`/orders/${notification.related_entity_id}`)
-    } else if (notification.related_entity_type === "payment" && notification.related_entity_id) {
-      router.push(`/payments?id=${notification.related_entity_id}`)
-    } else if (notification.related_entity_type === "delivery" && notification.related_entity_id) {
-      router.push(`/delivery/tracking/${notification.related_entity_id}`)
-    }
-
-    if (onClose) {
-      onClose()
+    if (notification.action_url) {
+      router.push(notification.action_url)
+      onClose?.()
     }
   }
 
-  // Get icon based on entity type
   const getEntityIcon = () => {
     switch (notification.related_entity_type) {
       case "order":
@@ -63,7 +54,6 @@ export function NotificationItem({ notification, onClose }: NotificationItemProp
     }
   }
 
-  // Get icon based on notification type
   const getTypeIcon = () => {
     switch (notification.type) {
       case "success":
@@ -94,6 +84,16 @@ export function NotificationItem({ notification, onClose }: NotificationItemProp
           )}
           {notification.data?.phone && (
             <p className="text-xs text-muted-foreground mt-1">Phone: {notification.data.phone}</p>
+          )}
+          {notification.data?.delivery_partner_name && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Delivery Partner: {notification.data.delivery_partner_name}
+            </p>
+          )}
+          {notification.data?.vehicle_type && notification.data?.vehicle_number && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Vehicle: {notification.data.vehicle_type} ({notification.data.vehicle_number})
+            </p>
           )}
           <p className="text-xs text-muted-foreground mt-1">
             {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}

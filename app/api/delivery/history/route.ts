@@ -9,6 +9,11 @@ export async function GET(request: NextRequest) {
   const {
     data: { session },
   } = await supabase.auth.getSession()
+
+  if (!session.user.id) {
+    return NextResponse.json({ error: "User ID is missing" }, { status: 400 })
+  }
+
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }

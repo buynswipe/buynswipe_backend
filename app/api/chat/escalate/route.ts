@@ -22,6 +22,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify the conversation belongs to the user
+    if (!user.id) {
+      return NextResponse.json({ error: "User ID is missing" }, { status: 400 })
+    }
     const { data: conversation, error: conversationError } = await supabase
       .from("chat_conversations")
       .select("*")

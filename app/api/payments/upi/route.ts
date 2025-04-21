@@ -28,6 +28,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 })
     }
 
+    if (!session.user.id) {
+      return NextResponse.json({ error: "User ID is missing" }, { status: 400 })
+    }
     // Check if user is the retailer for this order
     if (order.retailer_id !== session.user.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 })

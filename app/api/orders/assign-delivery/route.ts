@@ -5,7 +5,7 @@ import { createServerNotification } from "@/lib/unified-notification-service"
 
 export async function POST(request: NextRequest) {
   const cookieStore = cookies()
-  const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+  const supabase = createRouteHandlerClient({ cookies })
 
   // Check if user is authenticated
   const {
@@ -18,6 +18,8 @@ export async function POST(request: NextRequest) {
 
   try {
     const { orderId, deliveryPartnerId, instructions } = await request.json()
+
+    console.log("Assigning delivery partner:", deliveryPartnerId, "to order:", orderId)
 
     if (!orderId || !deliveryPartnerId) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
@@ -37,7 +39,11 @@ export async function POST(request: NextRequest) {
     // Get order details
     const { data: order, error: orderError } = await supabase
       .from("orders")
-      .select("*, retailer:profiles!retailer_id(id, business_name, address, city, pincode)")
+      .select(`
+       *,
+       retailer:profiles!retailer_id(business_name, address, city, pincode, phone),
+       wholesaler:profiles!wholesaler_id(business_name, address, city, pincode)
+     `)
       .eq("id", orderId)
       .single()
 
@@ -83,44 +89,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized to use this delivery partner" }, { status: 403 })
     }
 
-    // Update order with delivery partner, instructions, and status
-    const { error: updateError } = await supabase
+    console.log("Reached the section for updating delivery partner and set to dispatched status")
+
+    // Update the order with delivery partner and set status to dispatched
+    const { data: updatedOrder, error: updateError } = await supabase
       .from("orders")
       .update({
         delivery_partner_id: deliveryPartnerId,
+        status: "dispatched", // Ensure status is set to dispatched
         delivery_instructions: instructions || null,
-        status: "dispatched", // Automatically set status to dispatched when assigning delivery partner
       })
       .eq("id", orderId)
-
-    // Log the update result
-    console.log(`Order ${orderId} assigned to delivery partner ${deliveryPartnerId} with status set to dispatched`)
+      .select()
+      .single()
 
     if (updateError) {
       console.error("Error updating order:", updateError)
       return NextResponse.json({ error: "Failed to assign delivery partner" }, { status: 500 })
     }
 
-    // Verify the update was successful by fetching the order again
-    const { data: updatedOrder, error: verifyError } = await supabase
-      .from("orders")
-      .select("delivery_partner_id, status")
-      .eq("id", orderId)
-      .single()
+    // Log the successful assignment
+    console.log(`Order ${orderId} assigned to delivery partner ${deliveryPartnerId} with status set to dispatched`)
 
-    if (verifyError) {
-      console.error("Error verifying update:", verifyError)
-    } else {
-      console.log("Updated order:", updatedOrder)
-      if (updatedOrder.delivery_partner_id !== deliveryPartnerId) {
-        console.error("Delivery partner ID mismatch after update!")
-      }
-      if (updatedOrder.status !== "dispatched") {
-        console.error("Status not set to dispatched after update!")
-      }
-    }
-
-    // Send notifications about delivery partner assignment
+    // Notify the delivery partner about the new assignment
     try {
       const orderNumber = orderId.substring(0, 8)
 
@@ -141,6 +132,7 @@ export async function POST(request: NextRequest) {
             phone: order.retailer.phone,
           },
         })
+        console.log(`Notification sent to delivery partner ${deliveryPartner.name} for order ${orderId}`)
       }
 
       // Notify retailer about delivery partner assignment

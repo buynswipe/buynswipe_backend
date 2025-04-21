@@ -40,6 +40,9 @@ export async function POST(request: NextRequest) {
       .eq("user_id", user.id)
       .single()
 
+    if (!user.id) {
+      return NextResponse.json({ error: "User ID is missing" }, { status: 400 })
+    }
     if (conversationError || !conversation) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }

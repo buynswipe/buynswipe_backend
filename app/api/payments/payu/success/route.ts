@@ -12,13 +12,26 @@ export async function POST(request: NextRequest) {
     params[key] = value.toString()
   }
 
+  const supabase = createRouteHandlerClient({ cookies })
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession()
+
+  if (sessionError) {
+    console.error("Error getting session:", sessionError)
+    return NextResponse.json({ error: "Failed to get session" }, { status: 500 })
+  }
+
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "User ID is missing" }, { status: 400 })
+  }
+
   // Verify hash to ensure the response is from PayU
   const isValidHash = verifyHash(params)
   if (!isValidHash) {
     return NextResponse.redirect(new URL(`/payment-error?error=Invalid response hash`, request.url))
   }
-
-  const supabase = createRouteHandlerClient({ cookies })
 
   try {
     // Get order ID from udf1

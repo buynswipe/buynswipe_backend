@@ -113,8 +113,10 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         if (partner) {
           console.log(`Found delivery partner with ID ${partner.id} for user ${userId}`)
 
-          // FIX: Ensure we're properly filtering by delivery_partner_id
-          query = query.eq("delivery_partner_id", partner.id)
+          // FIX: Use in() instead of eq() to include all relevant order statuses
+          query = query
+            .eq("delivery_partner_id", partner.id)
+            .in("status", ["confirmed", "dispatched", "in_transit", "assigned", "picked_up"])
 
           // Log the query being executed
           const { data: orderCount } = await supabase

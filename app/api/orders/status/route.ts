@@ -79,6 +79,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: updateError.message }, { status: 500 })
     }
 
+    console.log("Payment marked as received successfully")
+
     // Send notifications about status change
     try {
       // Format status for display
