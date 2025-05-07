@@ -1,161 +1,129 @@
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
-import { redirect } from "next/navigation"
+import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import Link from "next/link"
+import { Truck, CheckCircle, Clock, CreditCard } from "lucide-react"
 import { DeliveryStats } from "@/components/delivery-partner/delivery-stats"
 import { RecentDeliveries } from "@/components/delivery-partner/recent-deliveries"
 
 export const dynamic = "force-dynamic"
 
 export default async function DeliveryPartnerDashboardPage() {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = createServerSupabaseClient()
 
-  // Check if user is authenticated
+  // Get user session
   const {
     data: { session },
   } = await supabase.auth.getSession()
 
   if (!session) {
-    redirect("/login")
+    return <div>Please log in to access this page</div>
   }
 
-  // Get user profile to check role
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", session.user.id).single()
+  // Get user profile
+  const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
 
-  if (profile?.role !== "delivery_partner") {
-    redirect("/dashboard")
-  }
+  // Get delivery partner info
+  const { data: partner } = await supabase.from("delivery_partners").select("*").eq("user_id", session.user.id).single()
 
-  try {
-    // Get delivery partner ID
-    const { data: deliveryPartner, error: deliveryPartnerError } = await supabase
-      .from("delivery_partners")
-      .select("id")
-      .eq("user_id", session.user.id)
-      .single()
+  // Get active deliveries
+  const { data: activeDeliveries } = await supabase
+    .from("orders")
+    .select("*")
+    .eq("delivery_partner_id", partner?.id || "")
+    .in("status", ["dispatched"])
+    .order("created_at", { ascending: false })
 
-    if (deliveryPartnerError) {
-      console.error("Error fetching delivery partner:", deliveryPartnerError)
-      throw new Error("Failed to fetch delivery partner profile")
-    }
+  // Get completed deliveries
+  const { data: completedDeliveries } = await supabase
+    .from("orders")
+    .select("*")
+    .eq("delivery_partner_id", partner?.id || "")
+    .in("status", ["delivered"])
+    .order("created_at", { ascending: false })
 
-    // Get assigned orders
-    const { data: orders, error: ordersError } = await supabase
-      .from("orders")
-      .select(
-        `
-        id,
-        created_at,
-        status,
-        total_amount,
-        payment_method,
-        payment_status,
-        retailer:profiles!retailer_id(business_name, address, city, pincode, phone)
-      `,
-      )
-      .eq("delivery_partner_id", deliveryPartner.id)
-      .in("status", ["dispatched", "in_transit", "out_for_delivery"])
-      .order("created_at", { ascending: false })
-      .limit(5)
+  // Get earnings
+  const { data: earnings } = await supabase
+    .from("delivery_partner_earnings")
+    .select("amount")
+    .eq("delivery_partner_id", partner?.id || "")
 
-    if (ordersError) {
-      console.error("Error fetching orders:", ordersError)
-      throw new Error("Failed to fetch assigned orders")
-    }
+  const totalEarnings = earnings?.reduce((sum, e) => sum + (e.amount || 0), 0) || 0
 
-    // Get delivery stats
-    const { data: stats, error: statsError } = await supabase.rpc("get_delivery_partner_stats", {
-      partner_id: deliveryPartner.id,
-    })
-
-    // If RPC fails, get stats manually
-    let deliveryStats = {
-      total_deliveries: 0,
-      completed_deliveries: 0,
-      active_deliveries: 0,
-      total_earnings: 0,
-    }
-
-    if (statsError) {
-      console.error("Error fetching delivery stats via RPC:", statsError)
-
-      // Fallback: Get stats manually
-      const { data: completedOrders, error: completedError } = await supabase
-        .from("orders")
-        .select("id")
-        .eq("delivery_partner_id", deliveryPartner.id)
-        .eq("status", "delivered")
-
-      const { data: activeOrders, error: activeError } = await supabase
-        .from("orders")
-        .select("id")
-        .eq("delivery_partner_id", deliveryPartner.id)
-        .in("status", ["dispatched", "in_transit", "out_for_delivery"])
-
-      const { data: earnings, error: earningsError } = await supabase
-        .from("delivery_partner_earnings")
-        .select("amount")
-        .eq("delivery_partner_id", deliveryPartner.id)
-        .eq("status", "paid")
-
-      deliveryStats = {
-        total_deliveries: (completedOrders?.length || 0) + (activeOrders?.length || 0),
-        completed_deliveries: completedOrders?.length || 0,
-        active_deliveries: activeOrders?.length || 0,
-        total_earnings: earnings?.reduce((sum, item) => sum + item.amount, 0) || 0,
-      }
-    } else {
-      deliveryStats = stats
-    }
-
-    return (
-      <div className="container mx-auto py-6">
-        <h1 className="text-2xl font-bold mb-6">Delivery Dashboard</h1>
-
-        <DeliveryStats stats={deliveryStats} />
-
-        <div className="mt-8">
-          <h2 className="text-xl font-semibold mb-4">Recent Deliveries</h2>
-          <RecentDeliveries orders={orders || []} />
-        </div>
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold mb-2">Delivery Dashboard</h1>
+        <h2 className="text-2xl font-bold tracking-tight">
+          Welcome, {profile?.business_name || profile?.full_name || profile?.email || "Driver"}
+        </h2>
+        <p className="text-muted-foreground">Here's what's happening with your deliveries today.</p>
       </div>
-    )
-  } catch (error) {
-    console.error("Error in DeliveryPartnerDashboardPage:", error)
 
-    return (
-      <div className="container mx-auto py-6">
-        <h1 className="text-2xl font-bold mb-6">Delivery Dashboard</h1>
+      <DeliveryStats
+        activeDeliveries={activeDeliveries?.length || 0}
+        completedDeliveries={completedDeliveries?.length || 0}
+        pendingDeliveries={0}
+        totalEarnings={totalEarnings}
+      />
 
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6">
-          <p>There was an error loading your dashboard. Please try again later.</p>
-        </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Quick Actions</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <Button asChild className="w-full justify-start">
+              <Link href="/delivery-partner/active">
+                <Truck className="mr-2 h-4 w-4" />
+                View Active Deliveries
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="w-full justify-start">
+              <Link href="/delivery-partner/earnings">
+                <CreditCard className="mr-2 h-4 w-4" />
+                View Earnings
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="w-full justify-start">
+              <Link href="/delivery-partner/profile">
+                <Clock className="mr-2 h-4 w-4" />
+                Update Profile
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white p-4 rounded-lg shadow">
-            <h3 className="text-sm font-medium text-gray-500">Active Deliveries</h3>
-            <p className="text-2xl font-bold">-</p>
-          </div>
-          <div className="bg-white p-4 rounded-lg shadow">
-            <h3 className="text-sm font-medium text-gray-500">Completed</h3>
-            <p className="text-2xl font-bold">-</p>
-          </div>
-          <div className="bg-white p-4 rounded-lg shadow">
-            <h3 className="text-sm font-medium text-gray-500">Total Deliveries</h3>
-            <p className="text-2xl font-bold">-</p>
-          </div>
-          <div className="bg-white p-4 rounded-lg shadow">
-            <h3 className="text-sm font-medium text-gray-500">Earnings</h3>
-            <p className="text-2xl font-bold">-</p>
-          </div>
-        </div>
-
-        <div className="mt-8">
-          <h2 className="text-xl font-semibold mb-4">Recent Deliveries</h2>
-          <div className="bg-white p-6 rounded-lg shadow text-center">
-            <p className="text-gray-500">No recent deliveries to display</p>
-          </div>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Delivery Tips</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Truck className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm">Manage your active deliveries</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm">Complete deliveries and collect payments</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CreditCard className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm">Track your earnings and payouts</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
-    )
-  }
+
+      {(activeDeliveries?.length || 0) > 0 && (
+        <RecentDeliveries title="Active Deliveries" deliveries={activeDeliveries || []} limit={5} />
+      )}
+
+      {(completedDeliveries?.length || 0) > 0 && (
+        <RecentDeliveries title="Recent Completed Deliveries" deliveries={completedDeliveries || []} limit={5} />
+      )}
+    </div>
+  )
 }

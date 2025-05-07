@@ -16,9 +16,6 @@ export async function POST(request: NextRequest) {
 
   try {
     // Check if user is a wholesaler
-    if (!session.user.id) {
-      return NextResponse.json({ error: "User ID is missing" }, { status: 400 })
-    }
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("role")

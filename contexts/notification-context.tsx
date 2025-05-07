@@ -14,9 +14,6 @@ interface Notification {
   is_read: boolean
   created_at: string
   data?: any
-  related_entity_type?: string | null
-  related_entity_id?: string | null
-  action_url?: string
 }
 
 interface NotificationContextType {
@@ -35,94 +32,76 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>([])
-  const [unreadCount, setUnreadCount] = useState(0)
+  const [unreadCount, setUnreadCount] = useState<number>(0)
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
-  const [userId, setUserId] = useState<string | null>(null)
 
   const supabase = createClientComponentClient()
 
   // Fetch notifications
   const fetchNotifications = useCallback(async () => {
-    if (!userId) return
-
     try {
       setIsLoading(true)
       setError(null)
 
-      // Fetch notifications directly from Supabase
-      const { data, error: fetchError } = await supabase
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      if (!session) return
+
+      const { data, error: notificationsError } = await supabase
         .from("notifications")
         .select("*")
-        .eq("user_id", userId)
+        .eq("user_id", session.user.id)
         .order("created_at", { ascending: false })
         .limit(50)
 
-      if (fetchError) {
-        console.error("Error fetching notifications:", fetchError)
-        setError("Failed to load notifications")
-        return
-      }
+      if (notificationsError) throw notificationsError
 
-      // Validate and filter out notifications with invalid UUIDs
-      const validNotifications = data?.filter((notification) => {
-        // Check if related_entity_id is a valid UUID if it exists
-        if (notification.related_entity_id) {
-          const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-          return uuidRegex.test(notification.related_entity_id)
-        }
-        return true
-      })
-
-      setNotifications(validNotifications || [])
-      setUnreadCount(validNotifications?.filter((n) => !n.is_read).length || 0)
+      setNotifications(data || [])
+      setUnreadCount(data?.filter((n: Notification) => !n.is_read).length || 0)
     } catch (error: any) {
-      console.error("Error in fetchNotifications:", error)
-      setError("Failed to load notifications")
+      console.error("Error fetching notifications:", error)
+      setError(error.message)
     } finally {
       setIsLoading(false)
     }
-  }, [userId, supabase])
+  }, [supabase])
 
   // Mark notification as read
-  const markAsRead = useCallback(
-    async (notificationId: string) => {
-      if (!userId) return
+  const markAsRead = async (notificationId: string) => {
+    try {
+      const { error } = await supabase.from("notifications").update({ is_read: true }).eq("id", notificationId)
 
-      try {
-        const { error } = await supabase.from("notifications").update({ is_read: true }).eq("id", notificationId)
+      if (error) throw error
 
-        if (error) throw error
+      // Update local state
+      setNotifications((prevNotifications) =>
+        prevNotifications.map((notification) =>
+          notification.id === notificationId ? { ...notification, is_read: true } : notification,
+        ),
+      )
 
-        // Update local state
-        setNotifications((prevNotifications) =>
-          prevNotifications.map((notification) =>
-            notification.id === notificationId ? { ...notification, is_read: true } : notification,
-          ),
-        )
-
-        setUnreadCount((prev) => Math.max(0, prev - 1))
-      } catch (error: any) {
-        console.error("Error marking notification as read:", error)
-        toast({
-          title: "Error",
-          description: "Failed to mark notification as read",
-          variant: "destructive",
-        })
-      }
-    },
-    [userId, toast],
-  )
+      setUnreadCount((prev) => Math.max(0, prev - 1))
+    } catch (error: any) {
+      console.error("Error marking notification as read:", error)
+    }
+  }
 
   // Mark all notifications as read
-  const markAllAsRead = useCallback(async () => {
-    if (!userId) return
-
+  const markAllAsRead = async () => {
     try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      if (!session) return
+
       const { error } = await supabase
         .from("notifications")
         .update({ is_read: true })
-        .eq("user_id", userId)
+        .eq("user_id", session.user.id)
         .eq("is_read", false)
 
       if (error) throw error
@@ -133,20 +112,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       )
 
       setUnreadCount(0)
-
-      toast({
-        title: "Success",
-        description: "All notifications marked as read",
-      })
     } catch (error: any) {
       console.error("Error marking all notifications as read:", error)
-      toast({
-        title: "Error",
-        description: "Failed to mark all notifications as read",
-        variant: "destructive",
-      })
     }
-  }, [userId, toast])
+  }
 
   // Delete notification
   const deleteNotification = async (notificationId: string) => {
@@ -166,43 +135,31 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       }
     } catch (error: any) {
       console.error("Error deleting notification:", error)
-      toast({
-        title: "Error",
-        description: "Failed to delete notification",
-        variant: "destructive",
-      })
     }
   }
 
   // Set up real-time subscription for new notifications
   useEffect(() => {
-    if (!userId) return
+    const setupSubscription = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
 
-    try {
-      const channel = supabase
-        .channel(`user-notifications-${userId}`)
+      if (!session) return
+
+      const subscription = supabase
+        .channel(`user-notifications-${session.user.id}`)
         .on(
           "postgres_changes",
           {
             event: "INSERT",
             schema: "public",
             table: "notifications",
-            filter: `user_id=eq.${userId}`,
+            filter: `user_id=eq.${session.user.id}`,
           },
           (payload) => {
-            // Validate the notification before adding it
-            const newNotification = payload.new as Notification
-
-            // Check if related_entity_id is a valid UUID if it exists
-            if (newNotification.related_entity_id) {
-              const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-              if (!uuidRegex.test(newNotification.related_entity_id)) {
-                console.warn("Received notification with invalid UUID, skipping")
-                return
-              }
-            }
-
             // Add new notification to state
+            const newNotification = payload.new as Notification
             setNotifications((prev) => [newNotification, ...prev])
             setUnreadCount((prev) => prev + 1)
 
@@ -216,30 +173,17 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         .subscribe()
 
       return () => {
-        supabase.removeChannel(channel)
+        subscription.unsubscribe()
       }
-    } catch (err) {
-      console.error("Error setting up notification subscription:", err)
-    }
-  }, [userId, supabase, toast])
-
-  // Load notifications on mount and when userId changes
-  useEffect(() => {
-    const getInitialSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      setUserId(session?.user?.id || null)
     }
 
-    getInitialSession()
+    setupSubscription()
   }, [supabase])
 
+  // Load notifications on mount
   useEffect(() => {
-    if (userId) {
-      fetchNotifications()
-    }
-  }, [fetchNotifications, userId])
+    fetchNotifications()
+  }, [fetchNotifications])
 
   const value = {
     notifications,

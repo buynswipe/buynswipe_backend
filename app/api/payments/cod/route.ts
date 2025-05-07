@@ -32,9 +32,6 @@ export async function POST(request: NextRequest) {
         .eq("id", session.user.id)
         .single()
 
-      if (!session.user.id) {
-        return NextResponse.json({ error: "User ID is missing" }, { status: 400 })
-      }
       if (profileError) {
         console.error("Error fetching user profile:", profileError)
         return NextResponse.json({ error: "Failed to verify user role", details: profileError }, { status: 500 })

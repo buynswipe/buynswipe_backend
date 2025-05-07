@@ -21,10 +21,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    if (!session.user.id) {
-      return NextResponse.json({ error: "User ID is missing" }, { status: 400 })
-    }
-
     // Get user profile to check role
     const { data: profile, error: profileError } = await supabase
       .from("profiles")

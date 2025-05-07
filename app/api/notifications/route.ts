@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
-import { isValidUUID } from "@/lib/utils"
 
 export async function POST(request: Request) {
   try {
@@ -81,10 +80,6 @@ export async function GET(request: Request) {
     const orderBy = searchParams.get("order") === "oldest" ? "oldest" : "newest"
 
     // Prepare query
-    if (!isValidUUID(session.user.id)) {
-      console.error("Invalid user ID:", session.user.id)
-      return NextResponse.json({ error: "Invalid user ID" }, { status: 400 })
-    }
     let query = supabase.from("notifications").select("*").eq("user_id", session.user.id)
 
     if (unreadOnly) {
