@@ -18,7 +18,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
-  const supabase = createClientComponentClient()
+  const [supabase] = useState(() => createClientComponentClient())
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -26,6 +26,8 @@ export default function LoginPage() {
     setError(null)
 
     try {
+      console.log("Attempting to sign in with email:", email)
+
       // Sign in with Supabase
       const { error: signInError, data } = await supabase.auth.signInWithPassword({
         email,
@@ -33,8 +35,15 @@ export default function LoginPage() {
       })
 
       if (signInError) {
+        console.error("Sign in error:", signInError)
         throw signInError
       }
+
+      if (!data.user) {
+        throw new Error("No user returned from authentication")
+      }
+
+      console.log("Sign in successful, fetching profile")
 
       // Fetch user profile to determine role
       const { data: profile, error: profileError } = await supabase
@@ -63,6 +72,8 @@ export default function LoginPage() {
         return
       }
 
+      console.log("Login successful, redirecting based on role:", profile.role)
+
       // Redirect based on role
       if (profile.role === "delivery_partner") {
         router.push("/delivery/my-deliveries")
@@ -71,7 +82,15 @@ export default function LoginPage() {
       }
     } catch (error: any) {
       console.error("Login error:", error)
-      setError(error.message || "Invalid login credentials")
+
+      // Provide more specific error messages
+      if (error.message === "Failed to fetch") {
+        setError("Connection error. Please check your internet connection and try again.")
+      } else if (error.message.includes("Invalid login")) {
+        setError("Invalid email or password. Please try again.")
+      } else {
+        setError(error.message || "An error occurred during login. Please try again.")
+      }
     } finally {
       setIsLoading(false)
     }
