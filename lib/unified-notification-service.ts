@@ -6,13 +6,13 @@ export type NotificationType = "success" | "info" | "warning" | "error"
 export type EntityType = "order" | "payment" | "delivery" | "product" | "user" | "system"
 
 export interface NotificationData {
-  user_id: string // Changed from userId to user_id for consistency
+  user_id: string
   title: string
   message: string
   type: NotificationType
-  entity_type?: EntityType // Changed from entityType to entity_type
-  entity_id?: string // Changed from entityId to entity_id
-  action_url?: string // Changed from actionUrl to action_url
+  related_entity_type?: EntityType
+  related_entity_id?: string
+  action_url?: string
   is_read?: boolean
 }
 
@@ -34,27 +34,36 @@ export async function createServerNotification(data: NotificationData) {
       return { success: false, error: "user_id is required" }
     }
 
-    // Check if notifications table exists
-    const { error: tableCheckError } = await supabase.from("notifications").select("id").limit(1)
-
-    if (tableCheckError && tableCheckError.message.includes('relation "notifications" does not exist')) {
-      console.warn("Notifications table does not exist:", tableCheckError.message)
-      return { success: false, error: "Notifications table does not exist" }
+    // Ensure user_id is a string
+    if (typeof data.user_id !== "string") {
+      console.error("Error creating notification: user_id must be a string, received:", typeof data.user_id)
+      data.user_id = String(data.user_id)
     }
 
-    // Insert notification
-    const { error } = await supabase.from("notifications").insert({
+    // Prepare notification data
+    const notificationData: any = {
       id: uuidv4(),
       user_id: data.user_id,
       title: data.title,
       message: data.message,
       type: data.type,
-      entity_type: data.entity_type,
-      entity_id: data.entity_id,
-      action_url: data.action_url,
       is_read: data.is_read ?? false,
       created_at: new Date().toISOString(),
-    })
+    }
+
+    // Add entity type and ID
+    if (data.related_entity_type) {
+      notificationData.related_entity_type = data.related_entity_type
+    }
+    if (data.related_entity_id) {
+      notificationData.related_entity_id = data.related_entity_id
+    }
+    if (data.action_url) {
+      notificationData.action_url = data.action_url
+    }
+
+    // Insert notification
+    const { error } = await supabase.from("notifications").insert(notificationData)
 
     if (error) {
       console.error("Error creating notification:", error)
@@ -96,12 +105,12 @@ export async function createOrderNotification({
   const title = `Order ${status.charAt(0).toUpperCase() + status.slice(1)}`
 
   const notificationData = {
-    user_id: userId, // Correctly map userId to user_id
+    user_id: userId,
     title,
     message,
     type: notificationType,
-    entity_type: "order" as EntityType,
-    entity_id: orderId,
+    related_entity_type: "order" as EntityType,
+    related_entity_id: orderId,
     action_url: `/orders/${orderId}`,
   }
 
@@ -125,12 +134,12 @@ export async function createDeliveryNotification({
   message: string
 }) {
   const notificationData = {
-    user_id: userId, // Correctly map userId to user_id
+    user_id: userId,
     title: `Delivery Update: ${status}`,
     message,
     type: "info" as NotificationType,
-    entity_type: "delivery" as EntityType,
-    entity_id: orderId,
+    related_entity_type: "delivery" as EntityType,
+    related_entity_id: orderId,
     action_url: `/orders/${orderId}`,
   }
 
@@ -179,12 +188,12 @@ export async function createPaymentNotification({
   }
 
   const notificationData = {
-    user_id: userId, // Correctly map userId to user_id
+    user_id: userId,
     title,
     message,
     type,
-    entity_type: "payment" as EntityType,
-    entity_id: orderId,
+    related_entity_type: "payment" as EntityType,
+    related_entity_id: orderId,
     action_url: `/orders/${orderId}`,
   }
 

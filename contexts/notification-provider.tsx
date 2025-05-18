@@ -54,6 +54,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     setError(null)
 
     try {
+      // Ensure user.id is a string
+      const userId = typeof user.id === "string" ? user.id : String(user.id)
+
       // Fetch notifications
       const { data, error: notificationsError } = await getUserNotifications({
         limit: 50,
@@ -149,6 +152,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     if (!user) return
 
+    // Ensure user.id is a string
+    const userId = typeof user.id === "string" ? user.id : String(user.id)
+
     const channel = supabase
       .channel("public:notifications")
       .on(
@@ -157,7 +163,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           event: "INSERT",
           schema: "public",
           table: "notifications",
-          filter: `user_id=eq.${user.id}`,
+          filter: `user_id=eq.${userId}`,
         },
         (payload) => {
           const newNotification = payload.new as Notification

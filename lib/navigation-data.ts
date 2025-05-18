@@ -269,6 +269,11 @@ export const getNavigationItems = (role: string) => {
       href: "/admin/database",
       icon: Database,
     },
+    {
+      title: "Database Fixes",
+      href: "/admin/database-fixes",
+      icon: Database,
+    },
   ]
 
   const retailerItems = [

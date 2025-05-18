@@ -26,19 +26,35 @@ export default async function DeliveryPartnerDashboardPage() {
   // Get delivery partner info
   const { data: partner } = await supabase.from("delivery_partners").select("*").eq("user_id", session.user.id).single()
 
-  // Get active deliveries
+  if (!partner) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Delivery Dashboard</h1>
+          <h2 className="text-2xl font-bold tracking-tight">
+            Welcome, {profile?.business_name || profile?.full_name || profile?.email || "Driver"}
+          </h2>
+          <p className="text-red-500">
+            Your delivery partner profile is not properly set up. Please contact an administrator.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  // Get active deliveries - CRITICAL FIX: Query by delivery_partner_id, not partner?.id
   const { data: activeDeliveries } = await supabase
     .from("orders")
     .select("*")
-    .eq("delivery_partner_id", partner?.id || "")
-    .in("status", ["dispatched"])
+    .eq("delivery_partner_id", partner.id)
+    .in("status", ["confirmed", "dispatched", "in_transit", "out_for_delivery"])
     .order("created_at", { ascending: false })
 
   // Get completed deliveries
   const { data: completedDeliveries } = await supabase
     .from("orders")
     .select("*")
-    .eq("delivery_partner_id", partner?.id || "")
+    .eq("delivery_partner_id", partner.id)
     .in("status", ["delivered"])
     .order("created_at", { ascending: false })
 
@@ -46,7 +62,7 @@ export default async function DeliveryPartnerDashboardPage() {
   const { data: earnings } = await supabase
     .from("delivery_partner_earnings")
     .select("amount")
-    .eq("delivery_partner_id", partner?.id || "")
+    .eq("delivery_partner_id", partner.id)
 
   const totalEarnings = earnings?.reduce((sum, e) => sum + (e.amount || 0), 0) || 0
 
@@ -74,7 +90,7 @@ export default async function DeliveryPartnerDashboardPage() {
           </CardHeader>
           <CardContent className="space-y-2">
             <Button asChild className="w-full justify-start">
-              <Link href="/delivery-partner/active">
+              <Link href="/delivery-partner/my-deliveries">
                 <Truck className="mr-2 h-4 w-4" />
                 View Active Deliveries
               </Link>

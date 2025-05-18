@@ -13,6 +13,11 @@ interface Notification {
   type: string
   is_read: boolean
   created_at: string
+  related_entity_type?: string
+  related_entity_id?: string
+  entity_type?: string
+  entity_id?: string
+  action_url?: string
   data?: any
 }
 
@@ -50,17 +55,48 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
       if (!session) return
 
+      // Ensure we're using a string for user_id, not an object
+      const userId = typeof session.user.id === "object" ? JSON.stringify(session.user.id) : session.user.id
+
+      if (!userId) {
+        console.error("Invalid user ID format:", session.user.id)
+        setError("Invalid user ID format")
+        return
+      }
+
       const { data, error: notificationsError } = await supabase
         .from("notifications")
         .select("*")
-        .eq("user_id", session.user.id)
+        .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(50)
 
-      if (notificationsError) throw notificationsError
+      if (notificationsError) {
+        console.error("Error fetching notifications:", notificationsError)
+        throw notificationsError
+      }
 
-      setNotifications(data || [])
-      setUnreadCount(data?.filter((n: Notification) => !n.is_read).length || 0)
+      // Handle different column naming conventions
+      const normalizedData =
+        data?.map((notification) => {
+          // Create a normalized notification object
+          const normalized = { ...notification }
+
+          // Handle entity_type vs related_entity_type
+          if (notification.entity_type && !notification.related_entity_type) {
+            normalized.related_entity_type = notification.entity_type
+          }
+
+          // Handle entity_id vs related_entity_id
+          if (notification.entity_id && !notification.related_entity_id) {
+            normalized.related_entity_id = notification.entity_id
+          }
+
+          return normalized
+        }) || []
+
+      setNotifications(normalizedData)
+      setUnreadCount(normalizedData.filter((n: Notification) => !n.is_read).length || 0)
     } catch (error: any) {
       console.error("Error fetching notifications:", error)
       setError(error.message)
@@ -98,10 +134,12 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
       if (!session) return
 
+      const userId = typeof session.user.id === "object" ? JSON.stringify(session.user.id) : session.user.id
+
       const { error } = await supabase
         .from("notifications")
         .update({ is_read: true })
-        .eq("user_id", session.user.id)
+        .eq("user_id", userId)
         .eq("is_read", false)
 
       if (error) throw error
@@ -147,15 +185,17 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
       if (!session) return
 
+      const userId = typeof session.user.id === "object" ? JSON.stringify(session.user.id) : session.user.id
+
       const subscription = supabase
-        .channel(`user-notifications-${session.user.id}`)
+        .channel(`user-notifications-${userId}`)
         .on(
           "postgres_changes",
           {
             event: "INSERT",
             schema: "public",
             table: "notifications",
-            filter: `user_id=eq.${session.user.id}`,
+            filter: `user_id=eq.${userId}`,
           },
           (payload) => {
             // Add new notification to state

@@ -11,19 +11,38 @@ export async function createExecSqlFunction() {
   try {
     console.log("Creating exec_sql function...")
 
-    // Create the exec_sql function
-    const { error } = await supabaseAdmin.sql`
-      -- Create a function to execute SQL statements
-      CREATE OR REPLACE FUNCTION exec_sql(query text)
-      RETURNS void
-      LANGUAGE plpgsql
-      SECURITY DEFINER
-      AS $$
-      BEGIN
-        EXECUTE query;
-      END;
-      $$;
-    `
+    // Create the exec_sql function directly using SQL
+    const { error } = await supabaseAdmin
+      .rpc("exec_sql", {
+        query: `
+        -- Create a function to execute SQL statements
+        CREATE OR REPLACE FUNCTION exec_sql(query text)
+        RETURNS void
+        LANGUAGE plpgsql
+        SECURITY DEFINER
+        AS $$
+        BEGIN
+          EXECUTE query;
+        END;
+        $$;
+      `,
+      })
+      .catch(async () => {
+        // If exec_sql doesn't exist yet, we need to create it directly
+        const { error } = await supabaseAdmin.sql`
+        -- Create a function to execute SQL statements
+        CREATE OR REPLACE FUNCTION exec_sql(query text)
+        RETURNS void
+        LANGUAGE plpgsql
+        SECURITY DEFINER
+        AS $$
+        BEGIN
+          EXECUTE query;
+        END;
+        $$;
+      `
+        return { error }
+      })
 
     if (error) {
       console.error("Error creating exec_sql function:", error)

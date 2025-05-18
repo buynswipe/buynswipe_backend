@@ -83,12 +83,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized to use this delivery partner" }, { status: 403 })
     }
 
+    // Ensure delivery partner has a user_id
+    if (!deliveryPartner.user_id) {
+      return NextResponse.json(
+        { error: "Delivery partner is not linked to a user account. Please contact an administrator." },
+        { status: 400 },
+      )
+    }
+
+    // CRITICAL FIX: Log the values being updated
+    console.log("Updating order with delivery partner:", {
+      orderId,
+      deliveryPartnerId,
+      instructions: instructions || null,
+      status: order.status === "placed" ? "confirmed" : order.status,
+    })
+
     // Update order with delivery partner and instructions
+    // Always ensure the status is at least "confirmed" if it's in "placed" status
     const { error: updateError } = await supabase
       .from("orders")
       .update({
         delivery_partner_id: deliveryPartnerId,
         delivery_instructions: instructions || null,
+        status: order.status === "placed" ? "confirmed" : order.status,
       })
       .eq("id", orderId)
 
@@ -101,18 +119,16 @@ export async function POST(request: NextRequest) {
     try {
       const orderNumber = orderId.substring(0, 8)
 
-      // If delivery partner has a user_id, send a notification
-      if (deliveryPartner.user_id) {
-        await createServerNotification({
-          user_id: deliveryPartner.user_id,
-          title: "New Delivery Assignment",
-          message: `You have been assigned to deliver order #${orderNumber} to ${order.retailer.business_name} in ${order.retailer.city}.`,
-          type: "info",
-          related_entity_type: "delivery",
-          related_entity_id: orderId,
-          action_url: `/delivery-partner/tracking/${orderId}`,
-        })
-      }
+      // Send notification to delivery partner
+      await createServerNotification({
+        user_id: deliveryPartner.user_id,
+        title: "New Delivery Assignment",
+        message: `You have been assigned to deliver order #${orderNumber} to ${order.retailer.business_name} in ${order.retailer.city}.`,
+        type: "info",
+        related_entity_type: "delivery",
+        related_entity_id: orderId,
+        action_url: `/delivery-partner/tracking/${orderId}`,
+      })
 
       // Notify retailer about delivery partner assignment
       await createServerNotification({

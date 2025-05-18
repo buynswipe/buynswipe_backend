@@ -25,7 +25,15 @@ export async function POST(request: Request) {
     }
 
     // Validate status
-    const validStatuses = ["placed", "confirmed", "dispatched", "delivered", "rejected"]
+    const validStatuses = [
+      "placed",
+      "confirmed",
+      "dispatched",
+      "delivered",
+      "rejected",
+      "in_transit",
+      "out_for_delivery",
+    ]
     if (!validStatuses.includes(status)) {
       return NextResponse.json({ error: "Invalid status" }, { status: 400 })
     }
@@ -33,7 +41,9 @@ export async function POST(request: Request) {
     // Get order details to check permissions
     const { data: order, error: orderError } = await supabase
       .from("orders")
-      .select("*, retailer:profiles!retailer_id(business_name), wholesaler:profiles!wholesaler_id(business_name)")
+      .select(
+        "*, retailer:profiles!retailer_id(business_name), wholesaler:profiles!wholesaler_id(business_name), delivery_partner:delivery_partners!delivery_partner_id(id, user_id, name)",
+      )
       .eq("id", orderId)
       .single()
 
@@ -72,8 +82,8 @@ export async function POST(request: Request) {
         title: `Order ${formattedStatus}`,
         message: `Your order #${orderNumber} has been ${status} by ${order.wholesaler.business_name}.`,
         type: status === "rejected" ? "error" : status === "confirmed" || status === "delivered" ? "success" : "info",
-        entity_type: "order",
-        entity_id: orderId,
+        related_entity_type: "order",
+        related_entity_id: orderId,
         action_url: `/orders/${orderId}`,
       })
 
@@ -83,20 +93,25 @@ export async function POST(request: Request) {
         title: `Order ${formattedStatus}`,
         message: `Order #${orderNumber} for ${order.retailer.business_name} has been marked as ${status}.`,
         type: "info",
-        entity_type: "order",
-        entity_id: orderId,
+        related_entity_type: "order",
+        related_entity_id: orderId,
         action_url: `/orders/${orderId}`,
       })
 
-      // If there's a delivery partner and status is dispatched, notify them too
-      if (status === "dispatched" && order.delivery_partner_id) {
+      // If there's a delivery partner, notify them too
+      if (order.delivery_partner_id && order.delivery_partner?.user_id) {
+        const deliveryPartnerMessage =
+          status === "dispatched"
+            ? `Order #${orderNumber} is ready for pickup and delivery.`
+            : `Order #${orderNumber} status has been updated to ${status}.`
+
         await createServerNotification({
-          user_id: order.delivery_partner_id,
-          title: "Order Ready for Pickup",
-          message: `Order #${orderNumber} is ready for pickup and delivery.`,
+          user_id: order.delivery_partner.user_id,
+          title: status === "dispatched" ? "Order Ready for Pickup" : `Order ${formattedStatus}`,
+          message: deliveryPartnerMessage,
           type: "info",
-          entity_type: "order",
-          entity_id: orderId,
+          related_entity_type: "delivery",
+          related_entity_id: orderId,
           action_url: `/delivery-partner/tracking/${orderId}`,
         })
       }

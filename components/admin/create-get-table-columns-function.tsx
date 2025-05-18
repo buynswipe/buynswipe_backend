@@ -7,60 +7,73 @@ import { AlertCircle, CheckCircle2, Copy } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
-export function CreateExecSqlFunction() {
+export function CreateGetTableColumnsFunction() {
   const [isLoading, setIsLoading] = useState(false)
-  const [result, setResult] = useState<{ success: boolean; message: string } | null>(null)
-  const [showManualInstructions, setShowManualInstructions] = useState(false)
+  const [result, setResult] = useState<{ success: boolean; message?: string; error?: string } | null>(null)
 
   const handleCreateFunction = async () => {
-    setIsLoading(true)
-    setResult(null)
-
     try {
-      const response = await fetch("/api/admin/create-exec-sql", {
+      setIsLoading(true)
+      setResult(null)
+
+      const response = await fetch("/api/admin/create-get-table-columns-function", {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
       })
 
-      const data = await response.json()
-
-      if (response.ok) {
-        setResult({
-          success: true,
-          message: "SQL execution function created successfully!",
-        })
-      } else {
-        setResult({
-          success: false,
-          message: data.error || "Failed to create SQL execution function.",
-        })
-        setShowManualInstructions(true)
+      let data
+      try {
+        data = await response.json()
+      } catch (e) {
+        console.error("Failed to parse JSON response:", e)
+        throw new Error("Server returned an invalid response. Check server logs for details.")
       }
-    } catch (error) {
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Failed to create get_table_columns function")
+      }
+
+      setResult({
+        success: true,
+        message: data.message || "get_table_columns function created successfully",
+      })
+    } catch (error: any) {
+      console.error("Error creating get_table_columns function:", error)
       setResult({
         success: false,
-        message: "An unexpected error occurred.",
+        error: error.message || "An unexpected error occurred",
       })
-      setShowManualInstructions(true)
     } finally {
       setIsLoading(false)
     }
   }
 
   const sqlScript = `
--- Create the exec_sql function
-CREATE OR REPLACE FUNCTION exec_sql(query text)
-RETURNS void
+-- Create a function to get table columns
+CREATE OR REPLACE FUNCTION public.get_table_columns(table_name text)
+RETURNS TABLE(column_name text, data_type text, is_nullable boolean)
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 BEGIN
-  EXECUTE query;
+  RETURN QUERY
+  SELECT 
+    c.column_name::text,
+    c.data_type::text,
+    (c.is_nullable = 'YES') AS is_nullable
+  FROM 
+    information_schema.columns c
+  WHERE 
+    c.table_schema = 'public'
+    AND c.table_name = get_table_columns.table_name;
 END;
 $$;
 
 -- Grant execute permission to authenticated users
-GRANT EXECUTE ON FUNCTION exec_sql(text) TO authenticated;
-GRANT EXECUTE ON FUNCTION exec_sql(text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.get_table_columns(text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_table_columns(text) TO service_role;
   `.trim()
 
   const copyToClipboard = () => {
@@ -70,24 +83,20 @@ GRANT EXECUTE ON FUNCTION exec_sql(text) TO service_role;
   return (
     <Card>
       <CardHeader>
-        <CardTitle>SQL Execution Function</CardTitle>
-        <CardDescription>Create the exec_sql function for database management.</CardDescription>
+        <CardTitle>Create Database Helper Function</CardTitle>
+        <CardDescription>Creates the get_table_columns function needed for schema operations</CardDescription>
       </CardHeader>
       <CardContent>
         <p className="text-sm text-muted-foreground mb-4">
-          This will create a PostgreSQL function that allows executing SQL statements from the application. This
-          function is required before other database fixes can work.
+          This utility creates a PostgreSQL function that allows the application to inspect table schemas. This function
+          is required for other database fixes to work properly.
         </p>
 
         {result && (
-          <Alert className={`mb-4 ${result.success ? "bg-green-50" : "bg-red-50"}`}>
-            {result.success ? (
-              <CheckCircle2 className="h-4 w-4 text-green-600" />
-            ) : (
-              <AlertCircle className="h-4 w-4 text-red-600" />
-            )}
+          <Alert variant={result.success ? "default" : "destructive"} className="mt-4 mb-4">
+            {result.success ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
             <AlertTitle>{result.success ? "Success" : "Error"}</AlertTitle>
-            <AlertDescription>{result.message}</AlertDescription>
+            <AlertDescription>{result.success ? result.message : result.error}</AlertDescription>
           </Alert>
         )}
 
@@ -98,7 +107,7 @@ GRANT EXECUTE ON FUNCTION exec_sql(text) TO service_role;
           </TabsList>
           <TabsContent value="automatic">
             <Button onClick={handleCreateFunction} disabled={isLoading} className="w-full">
-              {isLoading ? "Creating..." : "Create SQL Function"}
+              {isLoading ? "Creating..." : "Create get_table_columns Function"}
             </Button>
           </TabsContent>
           <TabsContent value="manual">
