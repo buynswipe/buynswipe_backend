@@ -123,12 +123,13 @@ export default function HomePageClient() {
               </div>
               <div className="mx-auto lg:mx-0 relative">
                 <img
-                  src="/retail-network-digital-scm.png"
-                  alt="Retail Bandhu platform connecting retailers, wholesalers, and delivery partners in a unified ecosystem"
+                  src="/retail-bandhu-workflow.webp"
+                  alt="Retail Bandhu workflow showing retailers connecting with wholesalers and delivery partners in a unified digital ecosystem"
                   width={550}
-                  height={550}
-                  className="rounded-lg object-cover border shadow-lg"
+                  height={400}
+                  className="rounded-lg object-contain border shadow-lg"
                   loading="lazy"
+                  srcSet="/retail-bandhu-workflow.webp 1x, /retail-bandhu-workflow-2x.webp 2x"
                 />
               </div>
             </div>
