@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
+import { logError } from "@/lib/debug-helpers"
+
+export const dynamic = "force-dynamic"
 
 export async function POST(request: Request) {
   try {
-    const supabase = createClientComponentClient({ cookies })
+    const supabase = createRouteHandlerClient({ cookies })
 
     // Get current user session
     const {
@@ -62,9 +65,13 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   try {
-    const supabase = createClientComponentClient({ cookies })
+    const supabase = createRouteHandlerClient({ cookies })
+    const { searchParams } = new URL(request.url)
+    const limit = searchParams.get("limit") ? Number.parseInt(searchParams.get("limit") as string) : 10
+    const offset = searchParams.get("offset") ? Number.parseInt(searchParams.get("offset") as string) : 0
+    const unreadOnly = searchParams.get("unread") === "true"
 
-    // Get current user session
+    // Get the current user
     const {
       data: { session },
     } = await supabase.auth.getSession()
@@ -73,38 +80,67 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Parse URL parameters
-    const { searchParams } = new URL(request.url)
-    const limit = Number.parseInt(searchParams.get("limit") || "20")
-    const unreadOnly = searchParams.get("unread") === "true"
-    const orderBy = searchParams.get("order") === "oldest" ? "oldest" : "newest"
+    const userId = session.user.id
 
-    // Prepare query
-    let query = supabase.from("notifications").select("*").eq("user_id", session.user.id)
+    // Build the query
+    let query = supabase
+      .from("notifications")
+      .select("*", { count: "exact" })
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1)
 
+    // Add filter for unread notifications if requested
     if (unreadOnly) {
       query = query.eq("is_read", false)
     }
 
-    const { data, error } = await query.order("created_at", { ascending: orderBy === "oldest" }).limit(limit)
+    // Execute the query
+    const { data, error, count } = await query
 
     if (error) {
-      console.error("Error fetching notifications:", error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      logError("API - notifications fetch", error)
+      return NextResponse.json({ error: "Failed to fetch notifications" }, { status: 500 })
     }
 
-    return NextResponse.json({ notifications: data })
-  } catch (error: any) {
-    console.error("Error in notifications API:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    // Process the notifications to ensure data is properly formatted
+    const processedNotifications = data.map((notification) => {
+      // If data is stored as a string, parse it
+      if (notification.data && typeof notification.data === "string") {
+        try {
+          notification.data = JSON.parse(notification.data)
+        } catch (e) {
+          // If parsing fails, keep the original string
+          console.warn(`Failed to parse notification data for ID ${notification.id}`)
+        }
+      }
+      return notification
+    })
+
+    return NextResponse.json({
+      notifications: processedNotifications,
+      count: count || 0,
+      limit,
+      offset,
+    })
+  } catch (error) {
+    logError("API - notifications route handler", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
 
 export async function PATCH(request: Request) {
   try {
-    const supabase = createClientComponentClient({ cookies })
+    const supabase = createRouteHandlerClient({ cookies })
+    const body = await request.json()
+    const { id } = body
 
-    // Get current user session
+    // Validate the request
+    if (!id) {
+      return NextResponse.json({ error: "Notification ID is required" }, { status: 400 })
+    }
+
+    // Get the current user
     const {
       data: { session },
     } = await supabase.auth.getSession()
@@ -113,31 +149,23 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get request body
-    const body = await request.json()
-
-    // Validate required fields
-    if (!body.id) {
-      return NextResponse.json({ error: "Missing notification ID" }, { status: 400 })
-    }
-
-    // Update the notification (mark as read)
+    // Update the notification
     const { data, error } = await supabase
       .from("notifications")
       .update({ is_read: true })
-      .eq("id", body.id)
-      .eq("user_id", session.user.id) // Ensure user only updates their own notifications
+      .eq("id", id)
+      .eq("user_id", session.user.id)
       .select()
       .single()
 
     if (error) {
-      console.error("Error updating notification:", error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      logError("API - notifications update", error)
+      return NextResponse.json({ error: "Failed to update notification" }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true, notification: data })
-  } catch (error: any) {
-    console.error("Error in notifications API:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ notification: data })
+  } catch (error) {
+    logError("API - notifications update handler", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

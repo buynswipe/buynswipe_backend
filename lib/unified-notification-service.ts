@@ -14,6 +14,7 @@ export interface NotificationData {
   related_entity_id?: string
   action_url?: string
   is_read?: boolean
+  data?: any
 }
 
 // Create a Supabase client
@@ -62,7 +63,12 @@ export async function createServerNotification(data: NotificationData) {
       notificationData.action_url = data.action_url
     }
 
-    // Insert notification
+    // Ensure data field is properly included
+    if (data.data) {
+      notificationData.data = data.data
+    }
+
+    // Insert notification with validation
     const { error } = await supabase.from("notifications").insert(notificationData)
 
     if (error) {
@@ -126,12 +132,14 @@ export async function createDeliveryNotification({
   orderNumber,
   status,
   message,
+  addressData = {},
 }: {
   userId: string
   orderId: string
   orderNumber: string
   status: string
   message: string
+  addressData?: any
 }) {
   const notificationData = {
     user_id: userId,
@@ -141,6 +149,7 @@ export async function createDeliveryNotification({
     related_entity_type: "delivery" as EntityType,
     related_entity_id: orderId,
     action_url: `/orders/${orderId}`,
+    data: addressData,
   }
 
   return createServerNotification(notificationData)

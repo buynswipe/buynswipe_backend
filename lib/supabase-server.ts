@@ -1,11 +1,15 @@
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { createClient as createSupabaseClient } from "@supabase/supabase-js"
+import { cache } from "react"
 
-export function createServerSupabaseClient() {
+// Use React cache to ensure we only create one client per request
+export const createServerSupabaseClient = cache(() => {
   const cookieStore = cookies()
-  return createServerComponentClient({ cookies: () => cookieStore })
-}
+  return createServerComponentClient({
+    cookies: () => cookieStore,
+  })
+})
 
 // Add the createClient export
 export const createClient = () => {

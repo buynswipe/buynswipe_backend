@@ -5,35 +5,48 @@ export default async function Home() {
   try {
     const supabase = createServerSupabaseClient()
 
-    // Check if user is logged in
+    // Get the user session
     const {
       data: { session },
+      error,
     } = await supabase.auth.getSession()
 
-    // If not logged in, redirect to login
+    if (error) {
+      console.error("Error getting session:", error)
+      redirect("/login")
+      return null
+    }
+
     if (!session) {
-      return redirect("/login")
+      redirect("/login")
+      return null
     }
 
-    // Get user profile to check role
-    const { data: profile } = await supabase.from("profiles").select("role").eq("id", session.user.id).single()
+    // Get the user profile to determine role
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", session.user.id)
+      .single()
 
-    // Default redirect path
-    let redirectPath = "/dashboard/main"
-
-    // Redirect based on role if profile exists
-    if (profile?.role) {
-      if (profile.role === "delivery_partner") {
-        redirectPath = "/delivery-partner/dashboard"
-      } else if (profile.role === "wholesaler") {
-        redirectPath = "/wholesaler-dashboard"
-      }
+    if (profileError) {
+      console.error("Error getting profile:", profileError)
+      redirect("/login")
+      return null
     }
 
-    return redirect(redirectPath)
+    // Redirect based on role
+    if (profile.role === "delivery_partner") {
+      redirect("/delivery-partner/dashboard")
+    } else if (profile.role === "wholesaler") {
+      redirect("/wholesaler-dashboard")
+    } else {
+      redirect("/dashboard/main")
+    }
   } catch (error) {
-    console.error("Root page error:", error)
-    // If there's any error, redirect to login as a fallback
-    return redirect("/login")
+    console.error("Unexpected error in Home page:", error)
+    redirect("/login")
   }
+
+  return null
 }

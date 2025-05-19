@@ -1,103 +1,124 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase-server"
-import { cookies } from "next/headers"
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
-    // Check authentication and admin role
-    const cookieStore = cookies()
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+    const supabase = createRouteHandlerClient({ cookies })
 
+    // Check if user is authenticated and is an admin
     const {
       data: { session },
     } = await supabase.auth.getSession()
+
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const { data: profile } = await supabase.from("profiles").select("role").eq("id", session.user.id).single()
 
-    if (profile?.role !== "admin") {
-      return NextResponse.json({ error: "Admin access required" }, { status: 403 })
+    if (!profile || profile.role !== "admin") {
+      return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 })
     }
 
-    // Create a Supabase client with the service role key
-    const supabaseAdmin = createClient()
+    // Check if the function already exists
+    const { data: existingFunction, error: checkError } = await supabase.rpc("check_function_exists", {
+      function_name: "exec_sql",
+    })
 
-    // Create the exec_sql function directly using raw query
-    const { error } = await supabaseAdmin
-      .from("_dummy_table_for_sql_execution")
-      .select("*")
-      .limit(1)
-      .then(async () => {
-        // If the query succeeds, the table exists
-        return { error: null }
-      })
-      .catch(async () => {
-        // If the query fails, create a temporary table
-        try {
-          // Try to execute the SQL directly
-          const { error } = await supabaseAdmin.rpc("exec_sql", {
-            query: `
-            CREATE OR REPLACE FUNCTION exec_sql(query text)
-            RETURNS void
-            LANGUAGE plpgsql
-            SECURITY DEFINER
-            AS $$
-            BEGIN
-              EXECUTE query;
-            END;
-            $$;
-          `,
-          })
+    if (checkError) {
+      // If the check function doesn't exist, we need to create it first
+      const createCheckFunctionQuery = `
+        CREATE OR REPLACE FUNCTION check_function_exists(function_name TEXT)
+        RETURNS BOOLEAN
+        LANGUAGE plpgsql
+        AS $$
+        DECLARE
+          func_exists BOOLEAN;
+        BEGIN
+          SELECT EXISTS (
+            SELECT 1
+            FROM pg_proc p
+            JOIN pg_namespace n ON p.pronamespace = n.oid
+            WHERE n.nspname = 'public'
+            AND p.proname = function_name
+          ) INTO func_exists;
+          
+          RETURN func_exists;
+        END;
+        $$;
+      `
 
-          // If there's an error, it might be because the function doesn't exist yet
-          if (error) {
-            // Try a different approach
-            const result = await supabaseAdmin
-              .from("_exec_sql_temp")
-              .insert([{ id: 1 }])
-              .select()
+      // Execute the query directly using the REST API
+      const { error: createCheckError } = await supabase.from("_rpc").select("*").eq("name", "check_function_exists")
 
-            if (result.error && result.error.code === "42P01") {
-              // Table doesn't exist, create it
-              await supabaseAdmin
-                .rpc("exec_sql", {
-                  query: "CREATE TABLE _exec_sql_temp (id int)",
-                })
-                .catch(() => {
-                  // If this fails, try direct SQL
-                  return supabaseAdmin.from("_dummy").select().limit(1)
-                })
+      if (createCheckError) {
+        // Create the check function using direct SQL
+        const response = await fetch(`${process.env.SUPABASE_URL}/rest/v1/`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: process.env.SUPABASE_ANON_KEY || "",
+            Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY || ""}`,
+            Prefer: "return=minimal",
+          },
+          body: JSON.stringify({
+            query: createCheckFunctionQuery,
+          }),
+        })
 
-              // Try again
-              await supabaseAdmin.from("_exec_sql_temp").insert([{ id: 1 }])
-            }
-
-            // Now use the table to execute our SQL
-            const { error: execError } = await supabaseAdmin.from("_exec_sql_temp").delete().eq("id", 1)
-
-            if (execError) {
-              return { error: execError }
-            }
-          }
-
-          return { error: null }
-        } catch (err) {
-          console.error("Error in catch block:", err)
-          return { error: err }
+        if (!response.ok) {
+          return NextResponse.json({ error: "Failed to create check_function_exists function" }, { status: 500 })
         }
-      })
-
-    if (error) {
-      console.error("Error creating exec_sql function:", error)
-      return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+      }
     }
 
-    return NextResponse.json({ success: true, message: "Successfully created exec_sql function" })
-  } catch (error: any) {
-    console.error("Unexpected error:", error)
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+    // If the function already exists, return success
+    if (existingFunction && existingFunction === true) {
+      return NextResponse.json({ message: "SQL execution function already exists" }, { status: 200 })
+    }
+
+    // Create the exec_sql function
+    const createFunctionQuery = `
+      CREATE OR REPLACE FUNCTION exec_sql(sql_query TEXT)
+      RETURNS VOID
+      LANGUAGE plpgsql
+      SECURITY DEFINER
+      AS $$
+      BEGIN
+        EXECUTE sql_query;
+      END;
+      $$;
+
+      -- Grant execute permission to authenticated users
+      GRANT EXECUTE ON FUNCTION exec_sql(TEXT) TO authenticated;
+      GRANT EXECUTE ON FUNCTION exec_sql(TEXT) TO service_role;
+    `
+
+    // Execute the query directly using the REST API
+    const response = await fetch(`${process.env.SUPABASE_URL}/rest/v1/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: process.env.SUPABASE_ANON_KEY || "",
+        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY || ""}`,
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify({
+        query: createFunctionQuery,
+      }),
+    })
+
+    if (!response.ok) {
+      return NextResponse.json({ error: "Failed to create SQL execution function" }, { status: 500 })
+    }
+
+    return NextResponse.json({ message: "SQL execution function created successfully" }, { status: 200 })
+  } catch (error) {
+    console.error("Error creating SQL execution function:", error)
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "An unexpected error occurred" },
+      { status: 500 },
+    )
   }
 }

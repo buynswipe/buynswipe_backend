@@ -1,9 +1,7 @@
 "use client"
 
 import { useContext } from "react"
-
 import type React from "react"
-
 import { useState, useEffect, useRef, createContext } from "react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { User } from "@supabase/supabase-js"
@@ -52,10 +50,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } = await supabase.auth.getSession()
 
         if (sessionError) {
-          throw sessionError
+          // Handle specific auth errors gracefully
+          if (sessionError.message.includes("refresh_token_not_found")) {
+            console.warn("Session expired or invalid, redirecting to login")
+            // Clear any stale auth state
+            setUser(null)
+          } else {
+            throw sessionError
+          }
+        } else {
+          setUser(session?.user || null)
         }
-
-        setUser(session?.user || null)
       } catch (error: any) {
         console.error("Error getting session:", error)
         setError(error.message)

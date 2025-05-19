@@ -1,7 +1,6 @@
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
-import { executeSQL } from "@/lib/database-helpers"
+import { cookies } from "next/headers"
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
 
 export async function POST(request: Request) {
   try {
@@ -17,49 +16,48 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get user profile to check role
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", session.user.id)
-      .single()
+    const { data: profile } = await supabase.from("profiles").select("role").eq("id", session.user.id).single()
 
-    if (profileError) {
-      return NextResponse.json({ error: "Profile not found" }, { status: 404 })
+    if (!profile || profile.role !== "admin") {
+      return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 })
     }
 
-    if (profile.role !== "admin") {
-      return NextResponse.json({ error: "Unauthorized. Admin access required." }, { status: 403 })
+    // Get the SQL query from the request body
+    const { query } = await request.json()
+
+    if (!query) {
+      return NextResponse.json({ error: "No SQL query provided" }, { status: 400 })
     }
 
-    // Get SQL from request body
-    const body = await request.json()
-    const { sql } = body
-
-    if (!sql) {
-      return NextResponse.json({ error: "SQL is required" }, { status: 400 })
-    }
-
-    // Execute SQL
-    const result = await executeSQL(sql)
-
-    if (!result.success) {
-      console.error("Error executing SQL:", result.error)
-      return NextResponse.json({
-        success: false,
-        error: result.error?.message || "Failed to execute SQL",
-      })
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: "SQL executed successfully",
+    // Execute the SQL query using the correct SQL API endpoint
+    const response = await fetch(`${process.env.SUPABASE_URL}/rest/v1/rpc/exec_sql`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY || ""}`,
+        apikey: process.env.SUPABASE_ANON_KEY || "",
+      },
+      body: JSON.stringify({ sql_query: query }),
     })
-  } catch (error: any) {
-    console.error("Error in execute-sql route:", error)
-    return NextResponse.json({
-      success: false,
-      error: error.message || "Internal server error",
-    })
+
+    if (!response.ok) {
+      let errorMessage = `SQL execution failed with status ${response.status}`
+      try {
+        const errorData = await response.json()
+        errorMessage = `${errorMessage}: ${JSON.stringify(errorData)}`
+      } catch (e) {
+        // If we can't parse the error response, just use the status code
+      }
+
+      return NextResponse.json({ error: errorMessage }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true, message: "SQL executed successfully" }, { status: 200 })
+  } catch (error) {
+    console.error("Unexpected error executing SQL:", error)
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "An unexpected error occurred" },
+      { status: 500 },
+    )
   }
 }

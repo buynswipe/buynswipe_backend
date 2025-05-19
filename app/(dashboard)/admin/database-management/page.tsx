@@ -1,18 +1,25 @@
+import type { Metadata } from "next"
+import { CreateSqlFunction } from "@/components/admin/create-sql-function"
 import { CreateNotificationsTable } from "@/components/admin/create-notifications-table"
-import { CreateExecSqlFunction } from "@/components/admin/create-exec-sql-function"
+import { CreateMessageQueueTables } from "@/components/admin/create-message-queue-tables"
+import { AddReferenceNumberToOrders } from "@/components/admin/add-reference-number-to-orders"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+
+export const metadata: Metadata = {
+  title: "Database Management",
+  description: "Manage database tables and functions",
+}
 
 export default function DatabaseManagementPage() {
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">Database Management</h2>
-        <p className="text-muted-foreground">Manage your database tables and functions.</p>
-      </div>
+    <div className="container mx-auto py-10">
+      <h1 className="text-2xl font-bold mb-6">Database Management</h1>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6">
+        <CreateSqlFunction />
+        <AddReferenceNumberToOrders />
         <CreateNotificationsTable />
-        <CreateExecSqlFunction />
+        <CreateMessageQueueTables />
 
         {/* Placeholder for future components */}
         <Card>

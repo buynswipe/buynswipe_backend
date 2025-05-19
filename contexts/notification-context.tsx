@@ -76,7 +76,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         throw notificationsError
       }
 
-      // Handle different column naming conventions
+      // Handle different column naming conventions and parse data field
       const normalizedData =
         data?.map((notification) => {
           // Create a normalized notification object
@@ -90,6 +90,16 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           // Handle entity_id vs related_entity_id
           if (notification.entity_id && !notification.related_entity_id) {
             normalized.related_entity_id = notification.entity_id
+          }
+
+          // Parse data field if it's a string
+          if (notification.data && typeof notification.data === "string") {
+            try {
+              normalized.data = JSON.parse(notification.data)
+            } catch (e) {
+              console.error("Error parsing notification data:", e)
+              // Keep the original string if parsing fails
+            }
           }
 
           return normalized

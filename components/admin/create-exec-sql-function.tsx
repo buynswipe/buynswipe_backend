@@ -26,7 +26,7 @@ export function CreateExecSqlFunction() {
       if (response.ok) {
         setResult({
           success: true,
-          message: "SQL execution function created successfully!",
+          message: data.message || "SQL execution function created successfully!",
         })
       } else {
         setResult({

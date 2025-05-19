@@ -1,9 +1,10 @@
 -- Create a function to get table columns
-CREATE OR REPLACE FUNCTION public.get_table_columns(table_name text)
-RETURNS TABLE(column_name text, data_type text, is_nullable boolean)
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
+CREATE OR REPLACE FUNCTION get_table_columns(table_name text)
+RETURNS TABLE (
+  column_name text,
+  data_type text,
+  is_nullable boolean
+) AS $$
 BEGIN
   RETURN QUERY
   SELECT 
@@ -13,11 +14,10 @@ BEGIN
   FROM 
     information_schema.columns c
   WHERE 
-    c.table_schema = 'public'
-    AND c.table_name = get_table_columns.table_name;
+    c.table_schema = 'public' 
+    AND c.table_name = table_name;
 END;
-$$;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Grant execute permission to authenticated users
-GRANT EXECUTE ON FUNCTION public.get_table_columns(text) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.get_table_columns(text) TO service_role;
+GRANT EXECUTE ON FUNCTION get_table_columns(text) TO authenticated;

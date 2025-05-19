@@ -1,10 +1,15 @@
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import type { Order } from "@/types/database.types"
+
+interface Delivery {
+  id: string
+  status: string
+  [key: string]: any
+}
 
 interface RecentDeliveriesProps {
   title: string
-  deliveries: Order[]
+  deliveries: Delivery[]
   limit?: number
 }
 
@@ -19,10 +24,12 @@ export function RecentDeliveries({ title, deliveries, limit = 5 }: RecentDeliver
           <div key={delivery.id} className="border rounded-lg p-4 flex justify-between items-center">
             <div>
               <p className="font-medium">Order #{delivery.id.substring(0, 8)}</p>
-              <p className="text-sm text-muted-foreground">Status: {delivery.status}</p>
+              <p className="text-sm text-muted-foreground">
+                Status: {delivery.status.charAt(0).toUpperCase() + delivery.status.slice(1).replace("_", " ")}
+              </p>
             </div>
             <Button asChild size="sm">
-              <Link href={`/delivery/tracking/${delivery.id}`}>View Details</Link>
+              <Link href={`/delivery-partner/tracking/${delivery.id}`}>View Details</Link>
             </Button>
           </div>
         ))}
@@ -31,7 +38,9 @@ export function RecentDeliveries({ title, deliveries, limit = 5 }: RecentDeliver
       {deliveries.length > limit && (
         <div className="mt-4 text-center">
           <Button asChild variant="outline">
-            <Link href={title.includes("Active") ? "/delivery/active" : "/delivery/completed"}>View All {title}</Link>
+            <Link href={title.includes("Active") ? "/delivery-partner/active" : "/delivery-partner/completed"}>
+              View All {title}
+            </Link>
           </Button>
         </div>
       )}

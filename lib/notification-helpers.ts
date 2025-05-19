@@ -22,7 +22,9 @@ export async function createOrderStatusNotification(
         wholesaler_id,
         delivery_partner_id,
         total_amount,
-        status
+        status,
+        retailer:profiles!retailer_id(business_name, address, city, pincode, phone),
+        wholesaler:profiles!wholesaler_id(business_name, address, city, pincode, phone)
       `)
       .eq("id", orderId)
       .single()
@@ -41,6 +43,13 @@ export async function createOrderStatusNotification(
         type: getNotificationTypeForStatus(status),
         related_entity_type: "order",
         related_entity_id: orderId,
+        data: {
+          address: order.wholesaler?.address,
+          city: order.wholesaler?.city,
+          pincode: order.wholesaler?.pincode,
+          phone: order.wholesaler?.phone,
+          business_name: order.wholesaler?.business_name,
+        },
       })
     }
 
@@ -52,10 +61,20 @@ export async function createOrderStatusNotification(
         type: getNotificationTypeForStatus(status),
         related_entity_type: "order",
         related_entity_id: orderId,
+        data: {
+          address: order.retailer?.address,
+          city: order.retailer?.city,
+          pincode: order.retailer?.pincode,
+          phone: order.retailer?.phone,
+          business_name: order.retailer?.business_name,
+        },
       })
     }
 
     if ((role === "delivery_partner" || role === "all") && order.delivery_partner_id) {
+      // For delivery partner, we need to include both retailer and delivery address
+      const deliveryAddress = status === "dispatched" ? order.retailer : order.wholesaler
+
       await createNotificationForUser({
         user_id: order.delivery_partner_id,
         title: `Delivery Update: ${formattedStatus}`,
@@ -63,6 +82,13 @@ export async function createOrderStatusNotification(
         type: getNotificationTypeForStatus(status),
         related_entity_type: "order",
         related_entity_id: orderId,
+        data: {
+          address: deliveryAddress?.address,
+          city: deliveryAddress?.city,
+          pincode: deliveryAddress?.pincode,
+          phone: deliveryAddress?.phone,
+          business_name: deliveryAddress?.business_name,
+        },
       })
     }
 
