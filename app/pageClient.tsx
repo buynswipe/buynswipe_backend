@@ -123,13 +123,12 @@ export default function HomePageClient() {
               </div>
               <div className="mx-auto lg:mx-0 relative">
                 <img
-                  src="/retail-bandhu-workflow.webp"
+                  src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-MQGm0dmm0duZOnmf6kcmrqZptAGcnc.png"
                   alt="Retail Bandhu workflow showing retailers connecting with wholesalers and delivery partners in a unified digital ecosystem"
                   width={550}
                   height={400}
                   className="rounded-lg object-contain border shadow-lg"
                   loading="lazy"
-                  srcSet="/retail-bandhu-workflow.webp 1x, /retail-bandhu-workflow-2x.webp 2x"
                 />
               </div>
             </div>
