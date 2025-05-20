@@ -1,59 +1,68 @@
 "use client"
 
-import type React from "react"
-
 import { useEffect, useState } from "react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { AlertTriangle, RefreshCw } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 
 interface ErrorBoundaryProps {
-  children: React.ReactNode
+  error: Error & { digest?: string }
+  reset: () => void
 }
 
-export function ErrorBoundary({ children }: ErrorBoundaryProps) {
-  const [hasError, setHasError] = useState(false)
-  const [error, setError] = useState<Error | null>(null)
+export function ErrorBoundary({ error, reset }: ErrorBoundaryProps) {
+  const [errorDetails, setErrorDetails] = useState<string | null>(null)
+  const [showDetails, setShowDetails] = useState(false)
 
   useEffect(() => {
-    const errorHandler = (error: ErrorEvent) => {
-      console.error("Caught client error:", error)
-      setError(error.error || new Error("An unknown error occurred"))
-      setHasError(true)
-    }
+    // Log the error to an error reporting service
+    console.error("Application error:", error)
 
-    window.addEventListener("error", errorHandler)
+    // Format error details for display
+    setErrorDetails(`${error.name}: ${error.message}${error.stack ? `\n\nStack trace:\n${error.stack}` : ""}`)
+  }, [error])
 
-    return () => {
-      window.removeEventListener("error", errorHandler)
-    }
-  }, [])
+  return (
+    <div className="flex min-h-[400px] items-center justify-center p-6">
+      <Card className="mx-auto max-w-md">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-red-500" />
+            <CardTitle>Something went wrong</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Alert variant="destructive" className="mb-4">
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error.message || "An unexpected error occurred"}</AlertDescription>
+          </Alert>
 
-  if (hasError) {
-    return (
-      <div className="p-4 max-w-md mx-auto mt-8">
-        <Alert variant="destructive" className="mb-4">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Something went wrong</AlertTitle>
-          <AlertDescription>{error?.message || "An unexpected error occurred. Please try again."}</AlertDescription>
-        </Alert>
-        <div className="flex justify-center space-x-4">
-          <Button
-            onClick={() => {
-              setHasError(false)
-              setError(null)
-            }}
-          >
-            Try Again
+          <p className="text-sm text-muted-foreground mb-4">
+            We apologize for the inconvenience. Our team has been notified of this issue.
+          </p>
+
+          {errorDetails && (
+            <div className="mt-4">
+              <Button variant="outline" size="sm" onClick={() => setShowDetails(!showDetails)} className="mb-2">
+                {showDetails ? "Hide" : "Show"} technical details
+              </Button>
+
+              {showDetails && (
+                <pre className="mt-2 max-h-[200px] overflow-auto rounded bg-slate-950 p-4 text-xs text-white">
+                  {errorDetails}
+                </pre>
+              )}
+            </div>
+          )}
+        </CardContent>
+        <CardFooter className="flex justify-between">
+          <Button variant="outline" onClick={() => (window.location.href = "/")}>
+            Go to Home
           </Button>
-          <Button variant="outline" onClick={() => window.location.reload()}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Reload Page
-          </Button>
-        </div>
-      </div>
-    )
-  }
-
-  return <>{children}</>
+          <Button onClick={reset}>Try again</Button>
+        </CardFooter>
+      </Card>
+    </div>
+  )
 }

@@ -1,33 +1,28 @@
-"use client"
-
+import type * as React from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { Store } from "lucide-react"
+
 import { cn } from "@/lib/utils"
 
-export function MainNav() {
-  const pathname = usePathname()
-
-  const navItems = [
-    { href: "/features", label: "Features" },
-    { href: "/benefits", label: "Benefits" },
-    { href: "/testimonials", label: "Testimonials" },
-    { href: "/contact", label: "Contact" },
-  ]
-
+export function MainNav({ className, ...props }: React.HTMLAttributes<HTMLElement>) {
   return (
-    <nav className="flex items-center space-x-6">
-      {navItems.map((item) => (
-        <Link
-          key={item.href}
-          href={item.href}
-          className={cn(
-            "text-sm font-medium transition-colors hover:text-primary",
-            pathname === item.href ? "text-primary" : "text-muted-foreground",
-          )}
-        >
-          {item.label}
-        </Link>
-      ))}
+    <nav className={cn("flex items-center space-x-4 lg:space-x-6", className)} {...props}>
+      <Link href="/" className="flex items-center space-x-2">
+        <Store className="h-6 w-6" />
+        <span className="font-bold text-xl">Retail Bandhu</span>
+      </Link>
+      <Link href="/features" className="text-sm font-medium transition-colors hover:text-primary">
+        Features
+      </Link>
+      <Link href="/benefits" className="text-sm font-medium transition-colors hover:text-primary">
+        Benefits
+      </Link>
+      <Link href="/testimonials" className="text-sm font-medium transition-colors hover:text-primary">
+        Testimonials
+      </Link>
+      <Link href="/contact" className="text-sm font-medium transition-colors hover:text-primary">
+        Contact
+      </Link>
     </nav>
   )
 }

@@ -5,10 +5,7 @@ import { cache } from "react"
 
 // Use React cache to ensure we only create one client per request
 export const createServerSupabaseClient = cache(() => {
-  const cookieStore = cookies()
-  return createServerComponentClient({
-    cookies: () => cookieStore,
-  })
+  return createServerComponentClient({ cookies })
 })
 
 // Add the createClient export

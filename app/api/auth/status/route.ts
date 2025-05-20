@@ -1,31 +1,28 @@
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { NextResponse } from "next/server"
 
 export async function GET() {
-  const supabase = createRouteHandlerClient({ cookies })
-
   try {
+    const supabase = createServerSupabaseClient()
+
     const {
       data: { session },
     } = await supabase.auth.getSession()
 
     if (!session) {
-      return NextResponse.json({
-        authenticated: false,
-      })
+      return NextResponse.json({ authenticated: false }, { status: 401 })
     }
 
     // Get user profile
-    const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
+    const { data: profile } = await supabase.from("profiles").select("role").eq("id", session.user.id).single()
 
     return NextResponse.json({
       authenticated: true,
-      user: session.user,
-      profile,
+      userId: session.user.id,
+      role: profile?.role || null,
     })
   } catch (error) {
-    console.error("Error checking auth status:", error)
+    console.error("Auth status error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

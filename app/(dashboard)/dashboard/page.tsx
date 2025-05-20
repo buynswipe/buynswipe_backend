@@ -3,7 +3,8 @@
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import { Loader2 } from "lucide-react"
+import { RoleGuard } from "@/components/role-guard"
+import DashboardContent from "./dashboard-content"
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -53,9 +54,8 @@ export default function DashboardPage() {
   }, [router, supabase])
 
   return (
-    <div className="flex items-center justify-center h-screen">
-      <Loader2 className="h-8 w-8 animate-spin" />
-      <span className="ml-2">Loading dashboard...</span>
-    </div>
+    <RoleGuard allowedRoles={["admin", "retailer", "wholesaler"]}>
+      <DashboardContent />
+    </RoleGuard>
   )
 }

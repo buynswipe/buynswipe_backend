@@ -14,12 +14,10 @@ import {
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { useRouter } from "next/navigation"
 import { NotificationBell } from "@/components/notifications/notification-bell"
+import { GlobalSearch } from "@/components/global-search"
+import Link from "next/link"
 
-interface HeaderProps {
-  onMenuClick: () => void
-}
-
-export function Header({ onMenuClick }: HeaderProps) {
+export function DashboardHeader() {
   const [userName, setUserName] = useState("")
   const [userRole, setUserRole] = useState("")
   const supabase = createClientComponentClient()
@@ -61,12 +59,16 @@ export function Header({ onMenuClick }: HeaderProps) {
     <header className="sticky top-0 z-40 border-b bg-background">
       <div className="container flex h-16 items-center justify-between py-4">
         <div className="flex items-center">
-          <Button variant="ghost" size="icon" className="md:hidden" onClick={onMenuClick}>
+          <Button variant="ghost" size="icon" className="md:hidden">
             <Menu className="h-6 w-6" />
             <span className="sr-only">Toggle menu</span>
           </Button>
+          <Link href="/dashboard" className="flex items-center">
+            <span className="text-xl font-bold">Retail Bandhu</span>
+          </Link>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
+          <GlobalSearch />
           <NotificationBell />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
