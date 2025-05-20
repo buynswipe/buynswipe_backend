@@ -4,16 +4,16 @@ import type React from "react"
 import { Sidebar } from "@/components/dashboard/sidebar"
 import { DashboardHeader } from "@/components/dashboard/header"
 import { MobileNavigation } from "@/components/mobile-navigation"
-import { redirect } from "next/navigation"
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
+import { redirect } from "next/navigation"
 
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  // Use createServerComponentClient instead of createServerSupabaseClient
+  // Use createServerComponentClient with cookies from next/headers
   const supabase = createServerComponentClient({ cookies })
 
   // Get user session

@@ -1,92 +1,93 @@
 "use client"
 
-import { useContext } from "react"
 import type React from "react"
-import { useState, useEffect, useRef, createContext } from "react"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import type { User } from "@supabase/supabase-js"
 
-// Update the AuthContextType to include signOut function
+import { createContext, useContext, useEffect, useState } from "react"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import type { User } from "@supabase/auth-helpers-nextjs"
+import { useRouter } from "next/navigation"
+
 type AuthContextType = {
   user: User | null
-  isLoading: boolean
-  error: string | null
+  profile: any | null
+  loading: boolean
   signOut: () => Promise<void>
+  refreshUser: () => Promise<void>
 }
 
-// Update the default context value to include a no-op signOut function
 const AuthContext = createContext<AuthContextType>({
   user: null,
-  isLoading: true,
-  error: null,
+  profile: null,
+  loading: true,
   signOut: async () => {},
+  refreshUser: async () => {},
 })
 
-// In the AuthProvider component, implement the signOut function
+export const useAuth = () => useContext(AuthContext)
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  // Create a single Supabase client instance using useRef
-  const supabaseClient = useRef(createClientComponentClient())
-  const supabase = supabaseClient.current
+  const [profile, setProfile] = useState<any | null>(null)
+  const [loading, setLoading] = useState(true)
+  const router = useRouter()
+  const supabase = createClientComponentClient()
 
-  // Add the signOut function
-  const signOut = async () => {
+  const refreshUser = async () => {
     try {
-      await supabase.auth.signOut()
-      // The auth state change listener will update the user state
-    } catch (error: any) {
-      console.error("Error signing out:", error)
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      if (session) {
+        setUser(session.user)
+
+        // Get user profile
+        const { data: profileData } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
+
+        setProfile(profileData)
+      } else {
+        setUser(null)
+        setProfile(null)
+      }
+    } catch (error) {
+      console.error("Error refreshing user:", error)
+      setUser(null)
+      setProfile(null)
+    } finally {
+      setLoading(false)
     }
   }
 
   useEffect(() => {
-    const getSession = async () => {
-      try {
-        const {
-          data: { session },
-          error: sessionError,
-        } = await supabase.auth.getSession()
+    refreshUser()
 
-        if (sessionError) {
-          // Handle specific auth errors gracefully
-          if (sessionError.message.includes("refresh_token_not_found")) {
-            console.warn("Session expired or invalid, redirecting to login")
-            // Clear any stale auth state
-            setUser(null)
-          } else {
-            throw sessionError
-          }
-        } else {
-          setUser(session?.user || null)
-        }
-      } catch (error: any) {
-        console.error("Error getting session:", error)
-        setError(error.message)
-      } finally {
-        setIsLoading(false)
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session) {
+        setUser(session.user)
+
+        // Get user profile
+        const { data: profileData } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
+
+        setProfile(profileData)
+      } else {
+        setUser(null)
+        setProfile(null)
       }
-    }
-
-    getSession()
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user || null)
-      setIsLoading(false)
+      setLoading(false)
+      router.refresh()
     })
 
     return () => {
-      subscription.unsubscribe()
+      authListener.subscription.unsubscribe()
     }
-  }, [supabase.auth])
+  }, [supabase, router])
 
-  // Include signOut in the context value
-  return <AuthContext.Provider value={{ user, isLoading, error, signOut }}>{children}</AuthContext.Provider>
-}
+  const signOut = async () => {
+    await supabase.auth.signOut()
+    router.push("/login")
+  }
 
-export function useAuth() {
-  return useContext(AuthContext)
+  return (
+    <AuthContext.Provider value={{ user, profile, loading, signOut, refreshUser }}>{children}</AuthContext.Provider>
+  )
 }
