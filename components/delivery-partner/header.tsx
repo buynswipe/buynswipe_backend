@@ -14,9 +14,10 @@ import {
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { useRouter } from "next/navigation"
 import { NotificationBell } from "@/components/notifications/notification-bell"
+import { ThemeToggle } from "@/components/theme-toggle"
 import Link from "next/link"
 
-export function Header() {
+export function DeliveryPartnerHeader() {
   const [userName, setUserName] = useState("")
   const supabase = createClientComponentClient()
   const router = useRouter()
@@ -28,10 +29,14 @@ export function Header() {
       } = await supabase.auth.getSession()
 
       if (session) {
-        const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", session.user.id).single()
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("business_name")
+          .eq("id", session.user.id)
+          .single()
 
         if (profile) {
-          setUserName(profile.full_name || "Delivery Partner")
+          setUserName(profile.business_name)
         }
       }
     }
@@ -57,10 +62,11 @@ export function Header() {
             <span className="sr-only">Toggle menu</span>
           </Button>
           <Link href="/delivery-partner/dashboard" className="flex items-center">
-            <span className="text-xl font-bold">Retail Bandhu</span>
+            <span className="text-xl font-bold">Delivery Dashboard</span>
           </Link>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
+          <ThemeToggle />
           <NotificationBell />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -93,5 +99,5 @@ export function Header() {
   )
 }
 
-// Export with the name that's being imported
-export const DeliveryPartnerHeader = Header
+// Export as Header for backward compatibility
+export const Header = DeliveryPartnerHeader

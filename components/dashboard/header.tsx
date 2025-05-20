@@ -15,6 +15,7 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { useRouter } from "next/navigation"
 import { NotificationBell } from "@/components/notifications/notification-bell"
 import { GlobalSearch } from "@/components/global-search"
+import { ThemeToggle } from "@/components/theme-toggle"
 import Link from "next/link"
 
 export function DashboardHeader() {
@@ -69,6 +70,7 @@ export function DashboardHeader() {
         </div>
         <div className="flex items-center gap-4">
           <GlobalSearch />
+          <ThemeToggle />
           <NotificationBell />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

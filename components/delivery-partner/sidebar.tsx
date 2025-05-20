@@ -90,3 +90,6 @@ export function DeliveryPartnerSidebar({ className }: SidebarProps) {
     </div>
   )
 }
+
+// Export DeliveryPartnerSidebar as Sidebar for backward compatibility
+export const Sidebar = DeliveryPartnerSidebar
