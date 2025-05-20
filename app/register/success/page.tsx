@@ -1,34 +1,30 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { CheckCircle } from "lucide-react"
 
-export default function RegistrationSuccessPage() {
+export default function RegisterSuccess() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <div className="flex justify-center">
-            <CheckCircle className="h-16 w-16 text-green-500" />
+    <div className="container flex h-screen w-screen flex-col items-center justify-center">
+      <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[450px] text-center">
+        <div className="flex justify-center">
+          <div className="rounded-full bg-green-100 p-4">
+            <CheckCircle className="h-12 w-12 text-green-600" />
           </div>
-          <CardTitle className="text-2xl font-bold text-center">Registration Successful!</CardTitle>
-          <CardDescription className="text-center">Your account has been created successfully.</CardDescription>
-        </CardHeader>
-        <CardContent className="text-center">
-          {/* Retailer message */}
-          <p className="mb-4">You can now log in to your account and start using Retail Bandhu.</p>
-          {/* Wholesaler message */}
-          <p className="text-sm text-muted-foreground">
-            Note: If you registered as a wholesaler, your account will need to be approved by an admin before you can
-            access all features.
-          </p>
-        </CardContent>
-        <CardFooter className="flex justify-center">
+        </div>
+        <h1 className="text-2xl font-semibold tracking-tight">Registration Successful!</h1>
+        <p className="text-muted-foreground">
+          Thank you for registering with Retail Bandhu. We've sent a verification email to your email address. Please
+          verify your email to complete the registration process.
+        </p>
+        <div className="flex flex-col gap-2">
           <Button asChild>
             <Link href="/login">Go to Login</Link>
           </Button>
-        </CardFooter>
-      </Card>
+          <Button variant="outline" asChild>
+            <Link href="/">Return to Home</Link>
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }

@@ -21,6 +21,24 @@ export const publicRoutes = [
   "/terms-of-service",
   "/payment-error",
   "/api/auth/status",
+  "/company/about",
+  "/company/terms-of-service",
+  "/company/privacy-policy",
+  "/company/careers",
+  "/company/press",
+  "/resources/documentation",
+  "/resources/tutorials",
+  "/resources/blog",
+  "/resources/case-studies",
+  "/resources/support",
+  "/products/inventory-management",
+  "/products/order-processing",
+  "/products/delivery-tracking",
+  "/products/payment-solutions",
+  "/products/analytics-reports",
+  "/company",
+  "/products",
+  "/resources",
 ]
 
 // Routes that start with these prefixes are also public
@@ -32,6 +50,9 @@ export const publicPrefixes = [
   "/favicon.ico",
   "/images/",
   "/fonts/",
+  "/company/",
+  "/resources/",
+  "/products/",
 ]
 
 /**

@@ -93,7 +93,8 @@ interface NavItemProps {
   onSelect: (path: string) => void
 }
 
-function NavItem({ item, pathname, isCollapsed, onSelect }: NavItemProps) {
+// Export NavItem as SidebarNavItem for compatibility
+export function NavItem({ item, pathname, isCollapsed, onSelect }: NavItemProps) {
   const [open, setOpen] = useState(false)
   const Icon = item.icon
   const isActive = pathname === item.path || pathname.startsWith(`${item.path}/`)
@@ -156,6 +157,9 @@ function NavItem({ item, pathname, isCollapsed, onSelect }: NavItemProps) {
     </button>
   )
 }
+
+// Also export NavItem as SidebarNavItem for compatibility
+export const SidebarNavItem = NavItem
 
 function ChildNavItem({
   item,
