@@ -1,31 +1,31 @@
 "use client"
 
 import type React from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { cn } from "@/lib/utils"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { useEffect, useState } from "react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import { getNavigationItems } from "@/lib/navigation-data"
+import { cn } from "@/lib/utils"
 import {
-  LayoutDashboard,
-  Package,
-  Settings,
-  ShoppingBag,
-  Users,
-  BarChart3,
-  Bell,
-  Truck,
+  ChevronDown,
+  ChevronRight,
   Store,
-  CreditCard,
-  MessageSquare,
+  Package,
+  LayoutDashboard,
+  ShoppingCart,
+  TrendingUp,
+  Users,
+  Truck,
+  BellRing,
+  Settings,
+  ExternalLink,
   HelpCircle,
-  LogOut,
+  Lock,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Separator } from "@/components/ui/separator"
+import { Badge } from "@/components/ui/badge"
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   className?: string
@@ -34,16 +34,14 @@ interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
 export function Sidebar({ className }: SidebarProps) {
   const pathname = usePathname()
   const [userRole, setUserRole] = useState<string | null>(null)
-  const [navItems, setNavItems] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [collapsed, setCollapsed] = useState(false)
   const supabase = createClientComponentClient()
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     async function getUserRole() {
       try {
         setLoading(true)
-        // Get current session
         const {
           data: { session },
         } = await supabase.auth.getSession()
@@ -58,16 +56,6 @@ export function Sidebar({ className }: SidebarProps) {
 
         if (profile) {
           setUserRole(profile.role)
-
-          // If user is a delivery partner, redirect to delivery dashboard
-          if (profile.role === "delivery_partner") {
-            window.location.href = "/delivery-partner/dashboard"
-            return
-          }
-
-          // Get navigation items based on role
-          const items = getNavigationItems(profile.role)
-          setNavItems(items)
         }
 
         setLoading(false)
@@ -80,166 +68,238 @@ export function Sidebar({ className }: SidebarProps) {
     getUserRole()
   }, [supabase])
 
-  // If user is a delivery partner, don't render the sidebar
-  if (userRole === "delivery_partner") {
-    return null
+  const toggleGroup = (group: string) => {
+    setOpenGroups((prev) => ({
+      ...prev,
+      [group]: !prev[group],
+    }))
   }
 
-  // Show loading state
+  // Structure navigation based on role
+  const getNavigation = () => {
+    const sharedItems = [
+      {
+        name: "Dashboard",
+        href: userRole === "wholesaler" ? "/wholesaler-dashboard" : "/dashboard",
+        icon: LayoutDashboard,
+      },
+    ]
+
+    const retailerItems = [
+      ...sharedItems,
+      { name: "Orders", href: "/orders", icon: ShoppingCart },
+      { name: "Wholesalers", href: "/wholesalers", icon: Store },
+      { name: "Payments", href: "/payments", icon: TrendingUp },
+      {
+        name: "Products",
+        href: "/manage-products",
+        icon: Package,
+      },
+    ]
+
+    const wholesalerItems = [
+      ...sharedItems,
+      {
+        name: "Order Management",
+        href: "/order-management",
+        icon: ShoppingCart,
+      },
+      {
+        name: "Products",
+        href: "/manage-products",
+        icon: Package,
+      },
+      {
+        name: "Inventory Alerts",
+        href: "/inventory-alerts",
+        icon: BellRing,
+        badge: "3",
+      },
+      {
+        name: "Delivery Partners",
+        href: "/delivery-partners",
+        icon: Truck,
+      },
+    ]
+
+    const adminItems = [
+      ...sharedItems,
+      { name: "Users", href: "/users", icon: Users },
+      { name: "Orders", href: "/orders", icon: ShoppingCart },
+      {
+        name: "Products",
+        href: "/manage-products",
+        icon: Package,
+      },
+      { name: "Payments", href: "/payments", icon: TrendingUp },
+      { name: "Analytics", href: "/analytics", icon: TrendingUp },
+      {
+        name: "Delivery Partners",
+        href: "/delivery-partners",
+        icon: Truck,
+      },
+      {
+        name: "Inventory Alerts",
+        href: "/inventory-alerts",
+        icon: BellRing,
+        badge: "5",
+      },
+      {
+        name: "Settings",
+        href: "#",
+        icon: Settings,
+        children: [
+          { name: "Payment Config", href: "/admin/payment-config", icon: Settings },
+          { name: "System Fixes", href: "/admin/system-fixes", icon: Settings },
+          { name: "Database Fixes", href: "/admin/database-fixes", icon: Lock },
+        ],
+      },
+    ]
+
+    switch (userRole) {
+      case "retailer":
+        return retailerItems
+      case "wholesaler":
+        return wholesalerItems
+      case "admin":
+        return adminItems
+      default:
+        return sharedItems
+    }
+  }
+
+  const navigation = getNavigation()
+
   if (loading) {
     return (
-      <div className={cn("pb-12", className)}>
-        <div className="space-y-4 py-4">
-          <div className="px-3 py-2">
-            <div className="mb-4 flex h-8 items-center px-4">
-              <div className="h-6 w-6 rounded-full bg-primary/20 animate-pulse"></div>
-              <div className="ml-2 h-4 w-24 rounded bg-muted animate-pulse"></div>
-            </div>
-            <div className="space-y-3 px-3">
-              {Array(6)
-                .fill(0)
-                .map((_, i) => (
-                  <div key={i} className="h-9 w-full animate-pulse rounded-md bg-muted"></div>
-                ))}
-            </div>
+      <div className={cn("space-y-4 py-4 animate-pulse", className)}>
+        <div className="px-3 py-2">
+          <div className="h-8 w-32 bg-gray-200 dark:bg-gray-800 rounded mb-6"></div>
+          <div className="space-y-3">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="h-10 bg-gray-200 dark:bg-gray-800 rounded-md"></div>
+            ))}
           </div>
         </div>
       </div>
     )
   }
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    window.location.href = "/login"
-  }
-
-  // Get navigation items based on user role
-  const getNavItemsForRole = () => {
-    if (userRole === "admin") {
-      return [
-        { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-        { href: "/analytics", label: "Analytics", icon: BarChart3 },
-        { href: "/orders", label: "Orders", icon: ShoppingBag },
-        { href: "/products", label: "Products", icon: Package },
-        { href: "/users", label: "Users", icon: Users },
-        { href: "/inventory-alerts", label: "Inventory Alerts", icon: Bell },
-        { href: "/delivery-partners", label: "Delivery Partners", icon: Truck },
-      ]
-    } else if (userRole === "wholesaler") {
-      return [
-        { href: "/wholesaler-dashboard", label: "Dashboard", icon: LayoutDashboard },
-        { href: "/analytics", label: "Analytics", icon: BarChart3 },
-        { href: "/order-management", label: "Order Management", icon: ShoppingBag },
-        { href: "/products", label: "Products", icon: Package },
-        { href: "/inventory-alerts", label: "Inventory Alerts", icon: Bell },
-        { href: "/delivery-partners", label: "Delivery Partners", icon: Truck },
-      ]
-    } else if (userRole === "retailer") {
-      return [
-        { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-        { href: "/orders", label: "Orders", icon: ShoppingBag },
-        { href: "/wholesalers", label: "Suppliers", icon: Store },
-        { href: "/products", label: "Products", icon: Package },
-        { href: "/payments", label: "Payments", icon: CreditCard },
-      ]
-    }
-
-    // Default navigation
-    return [
-      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/orders", label: "Orders", icon: ShoppingBag },
-      { href: "/products", label: "Products", icon: Package },
-    ]
-  }
-
-  const mainNavItems = getNavItemsForRole()
-
-  const secondaryNavItems = [
-    { href: "/messages", label: "Messages", icon: MessageSquare },
-    { href: "/settings", label: "Settings", icon: Settings },
-    { href: "/help", label: "Help & Support", icon: HelpCircle },
-  ]
-
   return (
-    <div className={cn("flex h-full flex-col border-r bg-background", className)}>
-      <div className="flex h-14 items-center border-b px-4">
-        <Link href="/dashboard" className="flex items-center gap-2">
-          <div className="h-6 w-6 rounded-md bg-primary flex items-center justify-center">
-            <span className="text-xs font-bold text-primary-foreground">RB</span>
-          </div>
-          {!collapsed && <span className="font-semibold">Retail Bandhu</span>}
-        </Link>
-      </div>
-      <ScrollArea className="flex-1">
-        <div className="px-3 py-4">
+    <div className={cn("pb-12", className)}>
+      <div className="space-y-4 py-4">
+        <div className="px-3 py-2">
+          <Link href="/dashboard" className="flex items-center mb-6">
+            <h2 className="text-xl font-semibold">Retail Bandhu</h2>
+          </Link>
           <div className="space-y-1">
-            {mainNavItems.map((item) => (
-              <TooltipProvider key={item.href} delayDuration={0}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Link
-                      href={item.href}
-                      className={cn(
-                        "group flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-                        pathname === item.href || pathname?.startsWith(`${item.href}/`)
-                          ? "bg-primary/10 text-primary hover:bg-primary/15"
-                          : "transparent",
-                      )}
-                    >
-                      <item.icon className="mr-2 h-5 w-5" />
-                      {!collapsed && <span>{item.label}</span>}
-                    </Link>
-                  </TooltipTrigger>
-                  {collapsed && <TooltipContent side="right">{item.label}</TooltipContent>}
-                </Tooltip>
-              </TooltipProvider>
-            ))}
-          </div>
+            {navigation.map((item) => {
+              // If the item has children, render as a collapsible
+              if (item.children) {
+                const isActive = item.children.some((child) => pathname === child.href)
+                const isOpen = openGroups[item.name] || isActive
 
-          <Separator className="my-4" />
-
-          <div className="space-y-1">
-            {secondaryNavItems.map((item) => (
-              <TooltipProvider key={item.href} delayDuration={0}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Link
-                      href={item.href}
-                      className={cn(
-                        "group flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-                        pathname === item.href ? "bg-primary/10 text-primary hover:bg-primary/15" : "transparent",
-                      )}
-                    >
-                      <item.icon className="mr-2 h-5 w-5" />
-                      {!collapsed && <span>{item.label}</span>}
-                    </Link>
-                  </TooltipTrigger>
-                  {collapsed && <TooltipContent side="right">{item.label}</TooltipContent>}
-                </Tooltip>
-              </TooltipProvider>
-            ))}
-
-            <TooltipProvider delayDuration={0}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start px-3 py-2 text-sm font-medium"
-                    onClick={handleSignOut}
+                return (
+                  <Collapsible
+                    key={item.name}
+                    open={isOpen}
+                    onOpenChange={() => toggleGroup(item.name)}
+                    className="w-full"
                   >
-                    <LogOut className="mr-2 h-5 w-5" />
-                    {!collapsed && <span>Log out</span>}
-                  </Button>
-                </TooltipTrigger>
-                {collapsed && <TooltipContent side="right">Log out</TooltipContent>}
-              </Tooltip>
-            </TooltipProvider>
+                    <CollapsibleTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        className={cn(
+                          "w-full justify-between px-3 text-left font-medium",
+                          isActive ? "bg-secondary" : "hover:bg-secondary/50",
+                        )}
+                      >
+                        <span className="flex items-center">
+                          {item.icon && <item.icon className="mr-2 h-4 w-4" />}
+                          {item.name}
+                        </span>
+                        {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="pl-6 pt-1">
+                      {item.children.map((child) => (
+                        <TooltipProvider key={child.name}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Link href={child.href}>
+                                <Button
+                                  variant="ghost"
+                                  className={cn(
+                                    "w-full justify-start text-left font-normal mb-1 pl-2",
+                                    pathname === child.href ? "bg-secondary font-medium" : "hover:bg-secondary/50",
+                                  )}
+                                >
+                                  {child.icon && <child.icon className="mr-2 h-4 w-4 text-muted-foreground" />}
+                                  {child.name}
+                                </Button>
+                              </Link>
+                            </TooltipTrigger>
+                            <TooltipContent side="right">{child.name}</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ))}
+                    </CollapsibleContent>
+                  </Collapsible>
+                )
+              }
+
+              // Otherwise render as a regular link
+              return (
+                <TooltipProvider key={item.name}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Link href={item.href}>
+                        <Button
+                          variant="ghost"
+                          className={cn(
+                            "w-full justify-start px-3 text-left font-medium",
+                            pathname === item.href ? "bg-secondary" : "hover:bg-secondary/50",
+                          )}
+                        >
+                          {item.icon && <item.icon className="mr-2 h-4 w-4" />}
+                          <span className="flex-1 truncate">{item.name}</span>
+                          {item.badge && (
+                            <Badge variant="secondary" className="ml-auto">
+                              {item.badge}
+                            </Badge>
+                          )}
+                        </Button>
+                      </Link>
+                    </TooltipTrigger>
+                    <TooltipContent side="right">{item.name}</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )
+            })}
           </div>
         </div>
-      </ScrollArea>
+
+        {/* Help and resources section */}
+        <div className="px-3 pt-4">
+          <div className="space-y-1">
+            <h4 className="text-xs font-semibold text-muted-foreground px-3 mb-2">Resources</h4>
+            <Button variant="ghost" className="w-full justify-start" asChild>
+              <Link href="/resources/documentation">
+                <HelpCircle className="mr-2 h-4 w-4" />
+                Documentation
+              </Link>
+            </Button>
+            <Button variant="ghost" className="w-full justify-start" asChild>
+              <a href="https://retailbandhu.com/support" target="_blank" rel="noreferrer noopener">
+                <ExternalLink className="mr-2 h-4 w-4" />
+                Support
+              </a>
+            </Button>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
 
-// Add the DashboardSidebar export as an alias to maintain compatibility
 export const DashboardSidebar = Sidebar

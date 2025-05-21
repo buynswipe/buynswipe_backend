@@ -5,47 +5,56 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 222 47% 11%;
+    --foreground: 222.2 84% 4.9%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 222.2 84% 4.9%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover-foreground: 222.2 84% 4.9%;
 
-    --primary: 210 100% 47%;
+    --primary: 226 70% 55%;
     --primary-foreground: 210 40% 98%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222 47% 11.2%;
+    --secondary: 240 5% 96%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
 
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 262 83% 58%;
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
+    --success: 142 76% 36%;
+    --success-foreground: 210 40% 98%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 222.2 47.4% 11.2%;
+
+    --info: 199 89% 48%;
+    --info-foreground: 210 40% 98%;
+
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83% 53.3%;
+    --ring: 226 70% 55%;
 
     --radius: 0.75rem;
   }
 
   .dark {
-    --background: 222 47% 11%;
+    --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
 
-    --card: 222 47% 11%;
+    --card: 222.2 84% 4.9%;
     --card-foreground: 210 40% 98%;
 
-    --popover: 222 47% 11%;
+    --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 210 100% 47%;
+    --primary: 217.2 91.2% 59.8%;
     --primary-foreground: 222.2 47.4% 11.2%;
 
     --secondary: 217.2 32.6% 17.5%;
@@ -54,11 +63,20 @@
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 262 83% 58%;
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
+
+    --success: 142 70% 45%;
+    --success-foreground: 210 40% 98%;
+
+    --warning: 48 96% 53%;
+    --warning-foreground: 222.2 47.4% 11.2%;
+
+    --info: 199 89% 48%;
+    --info-foreground: 210 40% 98%;
 
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
@@ -71,104 +89,113 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground font-sans;
-  }
-  h1,
-  h2,
-  h3,
-  h4,
-  h5,
-  h6 {
-    @apply font-heading tracking-tight;
-  }
-  h1 {
-    @apply text-3xl font-bold md:text-4xl;
-  }
-  h2 {
-    @apply text-2xl font-bold md:text-3xl;
-  }
-  h3 {
-    @apply text-xl font-semibold md:text-2xl;
-  }
-  h4 {
-    @apply text-lg font-semibold md:text-xl;
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
 
-/* Custom component styles */
+/* Custom components */
 @layer components {
-  .card-hover {
-    @apply transition-all duration-200 hover:shadow-md hover:border-primary/20;
-  }
-
-  .nav-item {
-    @apply flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring;
-  }
-
-  .nav-item-active {
-    @apply bg-primary/10 text-primary hover:bg-primary/15;
-  }
-
-  .dashboard-stat {
-    @apply flex flex-col gap-1 rounded-lg border bg-card p-4 text-card-foreground shadow transition-all duration-200 hover:shadow-md;
-  }
-
-  .dashboard-stat-title {
-    @apply text-sm font-medium text-muted-foreground;
-  }
-
-  .dashboard-stat-value {
-    @apply text-2xl font-bold;
-  }
-
-  .dashboard-stat-description {
-    @apply text-xs text-muted-foreground;
-  }
-
   .status-badge {
-    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium;
   }
 
-  .status-badge-success {
-    @apply bg-success/20 text-success-700 dark:bg-success/30 dark:text-success-300;
+  .status-badge-green {
+    @apply bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200;
   }
 
-  .status-badge-warning {
-    @apply bg-warning/20 text-warning-700 dark:bg-warning/30 dark:text-warning-300;
+  .status-badge-red {
+    @apply bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200;
   }
 
-  .status-badge-error {
-    @apply bg-destructive/20 text-destructive dark:bg-destructive/30 dark:text-destructive-foreground;
+  .status-badge-yellow {
+    @apply bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200;
   }
 
-  .status-badge-info {
-    @apply bg-info/20 text-info-700 dark:bg-info/30 dark:text-info-300;
+  .status-badge-blue {
+    @apply bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200;
   }
 
-  .status-badge-neutral {
-    @apply bg-secondary text-secondary-foreground;
+  .status-badge-purple {
+    @apply bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200;
+  }
+
+  .stat-card {
+    @apply flex flex-col rounded-xl border p-4 bg-white dark:bg-gray-950 shadow-card transition-all hover:shadow-elevated;
+  }
+
+  .card-interactive {
+    @apply transition-all duration-200 hover:shadow-elevated hover:-translate-y-0.5;
+  }
+
+  .page-header {
+    @apply space-y-2.5 animate-fade-in;
   }
 }
 
-/* Optimize images for performance */
-img {
-  max-width: 100%;
-  height: auto;
+/* Enhanced transitions */
+.fade-enter {
+  opacity: 0;
+}
+.fade-enter-active {
+  opacity: 1;
+  transition: opacity 200ms;
+}
+.fade-exit {
+  opacity: 1;
+}
+.fade-exit-active {
+  opacity: 0;
+  transition: opacity 200ms;
 }
 
-/* Mobile optimizations */
+/* Dashboard Layouts */
+.dashboard-layout {
+  display: grid;
+  height: 100vh;
+  grid-template-rows: auto 1fr;
+  grid-template-columns: 280px 1fr;
+  grid-template-areas:
+    "sidebar header"
+    "sidebar main";
+}
+
+@media (max-width: 1024px) {
+  .dashboard-layout {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "header"
+      "main";
+  }
+}
+
+.dashboard-header {
+  grid-area: header;
+}
+
+.dashboard-sidebar {
+  grid-area: sidebar;
+}
+
+.dashboard-main {
+  grid-area: main;
+  overflow-y: auto;
+}
+
+/* Fix for mobile layout issues */
 @media (max-width: 768px) {
   .sheet-content {
-    width: 85% !important;
-    max-width: 320px !important;
+    width: 80% !important;
+    max-width: 300px !important;
   }
 
   /* Ensure content is visible */
   .dashboard-content {
     width: 100% !important;
-    min-height: 100vh;
-    padding-left: 0.75rem !important;
-    padding-right: 0.75rem !important;
+    min-height: calc(100vh - 120px);
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    padding-bottom: 80px !important; /* Space for mobile nav */
   }
 
   /* Fix tabs overflow */
@@ -191,7 +218,7 @@ img {
 
   /* Improve card layouts for mobile */
   .card-mobile {
-    padding: 1rem !important;
+    padding: 12px !important;
   }
 
   /* Adjust text sizes for better mobile readability */
@@ -202,90 +229,16 @@ img {
   .mobile-text-xs {
     font-size: 0.75rem !important;
   }
-
-  /* Improve spacing on mobile */
-  .mobile-spacing {
-    margin-bottom: 0.75rem !important;
-    padding-top: 0.75rem !important;
-    padding-bottom: 0.75rem !important;
-  }
-
-  /* Make header more compact on mobile */
-  .header-mobile {
-    height: 60px !important;
-    padding-left: 1rem !important;
-    padding-right: 1rem !important;
-  }
-
-  /* Adjust main content area padding */
-  .main-content {
-    padding: 1rem !important;
-  }
-
-  /* Optimize sidebar for mobile */
-  .sidebar-mobile {
-    width: 100% !important;
-    max-width: 280px !important;
-  }
-
-  /* Optimize dialog for mobile */
-  .dialog-mobile {
-    padding: 1rem !important;
-    width: 95% !important;
-    max-height: 90vh !important;
-    overflow-y: auto !important;
-  }
-
-  /* Bottom navigation for mobile */
-  .bottom-nav {
-    @apply fixed bottom-0 left-0 z-50 w-full border-t bg-background;
-  }
 }
 
-/* Improve mobile responsiveness */
-@media (max-width: 640px) {
-  .container {
-    padding-left: 1rem;
-    padding-right: 1rem;
-  }
-}
-
-/* Improve loading performance */
-@media (prefers-reduced-motion: reduce) {
-  * {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-}
-
-/* Add smooth scrolling for anchor links */
-html {
-  scroll-behavior: smooth;
-}
-
-/* Optimize for print */
-@media print {
-  .no-print {
-    display: none;
-  }
-}
-
-/* Accessibility focus styles */
-:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
-}
-
-/* Custom scrollbar */
+/* Modern scroll bar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: hsl(var(--background));
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
@@ -297,16 +250,9 @@ html {
   background: hsl(var(--muted-foreground) / 0.5);
 }
 
-/* Animations */
-.animate-in {
-  animation: fade-in 0.3s ease-out;
-}
-
-.animate-out {
-  animation: fade-out 0.3s ease-out;
-}
-
-/* Skip to content link for accessibility */
-.skip-to-content {
-  @apply sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-md;
+/* Optimize for print */
+@media print {
+  .no-print {
+    display: none;
+  }
 }
