@@ -5,19 +5,19 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 222 47% 11%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 222 47% 11%;
 
-    --primary: 221.2 83% 53.3%;
+    --primary: 210 100% 47%;
     --primary-foreground: 210 40% 98%;
 
     --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary-foreground: 222 47% 11.2%;
 
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
@@ -32,20 +32,20 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 221.2 83% 53.3%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
+    --background: 222 47% 11%;
     --foreground: 210 40% 98%;
 
-    --card: 222.2 84% 4.9%;
+    --card: 222 47% 11%;
     --card-foreground: 210 40% 98%;
 
-    --popover: 222.2 84% 4.9%;
+    --popover: 222 47% 11%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 217.2 91.2% 59.8%;
+    --primary: 210 100% 47%;
     --primary-foreground: 222.2 47.4% 11.2%;
 
     --secondary: 217.2 32.6% 17.5%;
@@ -71,7 +71,82 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
+  }
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-heading tracking-tight;
+  }
+  h1 {
+    @apply text-3xl font-bold md:text-4xl;
+  }
+  h2 {
+    @apply text-2xl font-bold md:text-3xl;
+  }
+  h3 {
+    @apply text-xl font-semibold md:text-2xl;
+  }
+  h4 {
+    @apply text-lg font-semibold md:text-xl;
+  }
+}
+
+/* Custom component styles */
+@layer components {
+  .card-hover {
+    @apply transition-all duration-200 hover:shadow-md hover:border-primary/20;
+  }
+
+  .nav-item {
+    @apply flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring;
+  }
+
+  .nav-item-active {
+    @apply bg-primary/10 text-primary hover:bg-primary/15;
+  }
+
+  .dashboard-stat {
+    @apply flex flex-col gap-1 rounded-lg border bg-card p-4 text-card-foreground shadow transition-all duration-200 hover:shadow-md;
+  }
+
+  .dashboard-stat-title {
+    @apply text-sm font-medium text-muted-foreground;
+  }
+
+  .dashboard-stat-value {
+    @apply text-2xl font-bold;
+  }
+
+  .dashboard-stat-description {
+    @apply text-xs text-muted-foreground;
+  }
+
+  .status-badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+
+  .status-badge-success {
+    @apply bg-success/20 text-success-700 dark:bg-success/30 dark:text-success-300;
+  }
+
+  .status-badge-warning {
+    @apply bg-warning/20 text-warning-700 dark:bg-warning/30 dark:text-warning-300;
+  }
+
+  .status-badge-error {
+    @apply bg-destructive/20 text-destructive dark:bg-destructive/30 dark:text-destructive-foreground;
+  }
+
+  .status-badge-info {
+    @apply bg-info/20 text-info-700 dark:bg-info/30 dark:text-info-300;
+  }
+
+  .status-badge-neutral {
+    @apply bg-secondary text-secondary-foreground;
   }
 }
 
@@ -81,19 +156,19 @@ img {
   height: auto;
 }
 
-/* Fix for mobile layout issues */
+/* Mobile optimizations */
 @media (max-width: 768px) {
   .sheet-content {
-    width: 80% !important;
-    max-width: 300px !important;
+    width: 85% !important;
+    max-width: 320px !important;
   }
 
   /* Ensure content is visible */
   .dashboard-content {
     width: 100% !important;
     min-height: 100vh;
-    padding-left: 0 !important;
-    padding-right: 0 !important;
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
   }
 
   /* Fix tabs overflow */
@@ -116,7 +191,7 @@ img {
 
   /* Improve card layouts for mobile */
   .card-mobile {
-    padding: 12px !important;
+    padding: 1rem !important;
   }
 
   /* Adjust text sizes for better mobile readability */
@@ -130,21 +205,21 @@ img {
 
   /* Improve spacing on mobile */
   .mobile-spacing {
-    margin-bottom: 0.5rem !important;
-    padding-top: 0.5rem !important;
-    padding-bottom: 0.5rem !important;
+    margin-bottom: 0.75rem !important;
+    padding-top: 0.75rem !important;
+    padding-bottom: 0.75rem !important;
   }
 
   /* Make header more compact on mobile */
   .header-mobile {
-    height: 56px !important;
-    padding-left: 0.75rem !important;
-    padding-right: 0.75rem !important;
+    height: 60px !important;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
   }
 
   /* Adjust main content area padding */
   .main-content {
-    padding: 0.75rem !important;
+    padding: 1rem !important;
   }
 
   /* Optimize sidebar for mobile */
@@ -155,10 +230,15 @@ img {
 
   /* Optimize dialog for mobile */
   .dialog-mobile {
-    padding: 16px !important;
+    padding: 1rem !important;
     width: 95% !important;
     max-height: 90vh !important;
     overflow-y: auto !important;
+  }
+
+  /* Bottom navigation for mobile */
+  .bottom-nav {
+    @apply fixed bottom-0 left-0 z-50 w-full border-t bg-background;
   }
 }
 
@@ -190,4 +270,43 @@ html {
   .no-print {
     display: none;
   }
+}
+
+/* Accessibility focus styles */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--background));
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* Animations */
+.animate-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+.animate-out {
+  animation: fade-out 0.3s ease-out;
+}
+
+/* Skip to content link for accessibility */
+.skip-to-content {
+  @apply sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-md;
 }

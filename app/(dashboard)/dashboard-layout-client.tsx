@@ -19,11 +19,17 @@ export function DashboardLayoutClient({
         }
       `}</style>
 
+      <a href="#main-content" className="skip-to-content">
+        Skip to content
+      </a>
+
       <div className="grid min-h-screen w-full md:grid-cols-[240px_1fr] lg:grid-cols-[280px_1fr]">
         <Sidebar className="hidden border-r md:block" />
         <div className="flex flex-col">
           <DashboardHeader />
-          <main className="flex-1 p-4 md:p-6 pb-20 md:pb-6">{children}</main>
+          <main id="main-content" className="flex-1 p-4 md:p-6 pb-20 md:pb-6 animate-in">
+            {children}
+          </main>
           <MobileNavigation />
         </div>
       </div>

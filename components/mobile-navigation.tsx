@@ -3,16 +3,13 @@
 import { useState, useEffect } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import { Home, ShoppingCart, Package, Bell, User, CreditCard, AlertTriangle, Truck, Menu, X } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/sheet"
+import { Home, ShoppingCart, Package, Bell, User, CreditCard, Truck, BarChart } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export function MobileNavigation() {
   const pathname = usePathname()
   const router = useRouter()
   const [role, setRole] = useState<string | null>(null)
-  const [isOpen, setIsOpen] = useState(false)
   const supabase = createClientComponentClient()
 
   useEffect(() => {
@@ -34,126 +31,68 @@ export function MobileNavigation() {
 
   // Get navigation items based on user role
   const getNavItems = () => {
-    const commonItems = [
-      { href: "/profile", label: "Profile", icon: User },
-      { href: "/notifications", label: "Notifications", icon: Bell },
-    ]
-
     if (role === "admin") {
       return [
-        { href: "/dashboard", label: "Dashboard", icon: Home },
-        { href: "/users", label: "Users", icon: User },
+        { href: "/dashboard", label: "Home", icon: Home },
         { href: "/orders", label: "Orders", icon: ShoppingCart },
+        { href: "/analytics", label: "Analytics", icon: BarChart },
         { href: "/products", label: "Products", icon: Package },
-        { href: "/payments", label: "Payments", icon: CreditCard },
-        { href: "/delivery-partners", label: "Delivery Partners", icon: Truck },
-        { href: "/inventory-alerts", label: "Inventory Alerts", icon: AlertTriangle },
-        ...commonItems,
+        { href: "/profile", label: "Profile", icon: User },
       ]
     } else if (role === "wholesaler") {
       return [
-        { href: "/wholesaler-dashboard", label: "Dashboard", icon: Home },
-        { href: "/order-management", label: "Order Management", icon: ShoppingCart },
+        { href: "/wholesaler-dashboard", label: "Home", icon: Home },
+        { href: "/order-management", label: "Orders", icon: ShoppingCart },
+        { href: "/analytics", label: "Analytics", icon: BarChart },
         { href: "/products", label: "Products", icon: Package },
-        { href: "/inventory-alerts", label: "Inventory Alerts", icon: AlertTriangle },
-        { href: "/delivery-partners", label: "Delivery Partners", icon: Truck },
-        ...commonItems,
+        { href: "/profile", label: "Profile", icon: User },
       ]
     } else if (role === "retailer") {
       return [
-        { href: "/dashboard", label: "Dashboard", icon: Home },
+        { href: "/dashboard", label: "Home", icon: Home },
         { href: "/orders", label: "Orders", icon: ShoppingCart },
-        { href: "/wholesalers", label: "Wholesalers", icon: Package },
+        { href: "/wholesalers", label: "Suppliers", icon: Package },
         { href: "/payments", label: "Payments", icon: CreditCard },
-        ...commonItems,
+        { href: "/profile", label: "Profile", icon: User },
       ]
     } else if (role === "delivery_partner") {
       return [
-        { href: "/delivery-partner/dashboard", label: "Dashboard", icon: Home },
-        { href: "/delivery-partner/my-deliveries", label: "My Deliveries", icon: Truck },
+        { href: "/delivery-partner/dashboard", label: "Home", icon: Home },
+        { href: "/delivery-partner/my-deliveries", label: "Deliveries", icon: Truck },
         { href: "/delivery-partner/earnings", label: "Earnings", icon: CreditCard },
-        ...commonItems,
+        { href: "/delivery-partner/notifications", label: "Alerts", icon: Bell },
+        { href: "/delivery-partner/profile", label: "Profile", icon: User },
       ]
     }
 
-    return commonItems
+    // Default navigation
+    return [
+      { href: "/dashboard", label: "Home", icon: Home },
+      { href: "/orders", label: "Orders", icon: ShoppingCart },
+      { href: "/products", label: "Products", icon: Package },
+      { href: "/notifications", label: "Alerts", icon: Bell },
+      { href: "/profile", label: "Profile", icon: User },
+    ]
   }
 
   const navItems = getNavItems()
 
-  const handleNavigation = (href: string) => {
-    setIsOpen(false)
-    router.push(href)
-  }
-
   return (
-    <div className="fixed bottom-0 left-0 z-50 w-full border-t bg-background md:hidden">
+    <div className="fixed bottom-0 left-0 z-50 w-full border-t bg-background md:hidden bottom-nav">
       <div className="grid h-16 grid-cols-5">
-        {navItems.slice(0, 4).map((item) => (
+        {navItems.map((item) => (
           <button
             key={item.href}
             onClick={() => router.push(item.href)}
             className={cn(
-              "flex flex-col items-center justify-center",
-              pathname === item.href ? "text-primary" : "text-muted-foreground",
+              "flex flex-col items-center justify-center transition-colors",
+              pathname === item.href ? "text-primary" : "text-muted-foreground hover:text-foreground",
             )}
           >
             <item.icon className="h-5 w-5" />
-            <span className="text-xs">{item.label}</span>
+            <span className="text-xs mt-1">{item.label}</span>
           </button>
         ))}
-
-        <Sheet open={isOpen} onOpenChange={setIsOpen}>
-          <SheetTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="flex flex-col items-center justify-center h-full rounded-none"
-            >
-              <Menu className="h-5 w-5" />
-              <span className="text-xs">Menu</span>
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="right" className="w-[80%] sm:w-[350px] p-0">
-            <div className="flex flex-col h-full">
-              <div className="flex items-center justify-between p-4 border-b">
-                <h2 className="text-lg font-semibold">Menu</h2>
-                <SheetClose asChild>
-                  <Button variant="ghost" size="icon">
-                    <X className="h-5 w-5" />
-                  </Button>
-                </SheetClose>
-              </div>
-              <div className="flex-1 overflow-auto py-2">
-                {navItems.map((item) => (
-                  <button
-                    key={item.href}
-                    onClick={() => handleNavigation(item.href)}
-                    className={cn(
-                      "flex items-center gap-3 px-4 py-3 hover:bg-muted w-full text-left",
-                      pathname === item.href ? "bg-muted" : "",
-                    )}
-                  >
-                    <item.icon className="h-5 w-5" />
-                    <span>{item.label}</span>
-                  </button>
-                ))}
-              </div>
-              <div className="p-4 border-t">
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={async () => {
-                    await supabase.auth.signOut()
-                    window.location.href = "/login"
-                  }}
-                >
-                  Log out
-                </Button>
-              </div>
-            </div>
-          </SheetContent>
-        </Sheet>
       </div>
     </div>
   )
