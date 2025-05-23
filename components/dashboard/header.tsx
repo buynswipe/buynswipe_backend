@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Menu, User, LogOut, Settings, Bell, Search } from "lucide-react"
+import { Bell, Menu, Search, User, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -13,25 +13,15 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { useRouter } from "next/navigation"
-import { NotificationBell } from "@/components/notifications/notification-bell"
-import { GlobalSearch } from "@/components/global-search"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import Link from "next/link"
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { Sidebar } from "./sidebar"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 
-interface DashboardHeaderProps {
-  onMenuClick?: () => void
-}
-
-export function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
+export function DashboardHeader() {
   const [userName, setUserName] = useState("")
   const [userRole, setUserRole] = useState("")
-  const [userEmail, setUserEmail] = useState("")
-  const [initials, setInitials] = useState("")
-  const [isScrolled, setIsScrolled] = useState(false)
-  const [isSearchOpen, setIsSearchOpen] = useState(false)
+  const [userInitials, setUserInitials] = useState("")
   const supabase = createClientComponentClient()
   const router = useRouter()
 
@@ -44,38 +34,19 @@ export function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
       if (session) {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("business_name, role, email")
+          .select("business_name, role")
           .eq("id", session.user.id)
           .single()
 
         if (profile) {
-          setUserName(profile.business_name || "")
-          setUserRole(profile.role || "")
-          setUserEmail(profile.email || session.user.email || "")
-
-          // Generate initials from business name
-          if (profile.business_name) {
-            const parts = profile.business_name.split(" ")
-            if (parts.length > 1) {
-              setInitials(`${parts[0][0]}${parts[1][0]}`.toUpperCase())
-            } else if (parts.length === 1) {
-              setInitials(parts[0].substring(0, 2).toUpperCase())
-            }
-          } else {
-            setInitials("RB")
-          }
+          setUserName(profile.business_name)
+          setUserRole(profile.role)
+          setUserInitials(profile.business_name?.substring(0, 2).toUpperCase() || "RB")
         }
       }
     }
 
     fetchUserProfile()
-
-    // Track scroll for shadow effect
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 10)
-    }
-    window.addEventListener("scroll", handleScroll)
-    return () => window.removeEventListener("scroll", handleScroll)
   }, [supabase])
 
   const handleSignOut = async () => {
@@ -87,77 +58,63 @@ export function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
     router.push(path)
   }
 
-  const getRoleColorClass = () => {
-    switch (userRole) {
-      case "admin":
-        return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300"
-      case "retailer":
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
-      case "wholesaler":
-        return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-      case "delivery_partner":
-        return "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300"
-      default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
-    }
-  }
-
   return (
-    <header
-      className={`sticky top-0 z-40 w-full bg-white dark:bg-gray-950 transition-all ${isScrolled ? "shadow-sm border-b" : "border-b border-transparent"}`}
-    >
-      <div className="flex h-16 items-center px-4 md:px-6">
-        <div className="flex items-center gap-2 lg:hidden">
-          <Button variant="ghost" size="icon" onClick={onMenuClick} className="lg:hidden">
-            <Menu className="h-5 w-5" />
-            <span className="sr-only">Toggle menu</span>
-          </Button>
-          <Link href="/dashboard" className="font-semibold text-lg lg:hidden">
-            Retail Bandhu
-          </Link>
+    <header className="sticky top-0 z-40 border-b bg-white/80 dark:bg-gray-950/80 backdrop-blur-md">
+      <div className="flex h-16 items-center justify-between px-6">
+        <div className="flex items-center gap-4">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="lg:hidden">
+                <Menu className="h-5 w-5" />
+                <span className="sr-only">Toggle menu</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-64 p-0">
+              <Sidebar className="border-r-0" />
+            </SheetContent>
+          </Sheet>
+
+          <div className="relative hidden md:flex w-96">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input
+              type="search"
+              placeholder="Search anything..."
+              className="w-full h-10 pl-10 pr-4 text-sm bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            />
+          </div>
         </div>
 
-        <div className="ml-auto flex items-center gap-2">
-          <div className="hidden md:flex relative">
-            <GlobalSearch />
-          </div>
-
-          <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setIsSearchOpen(!isSearchOpen)}>
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" className="md:hidden">
             <Search className="h-5 w-5" />
+            <span className="sr-only">Search</span>
           </Button>
 
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div>
-                  <ThemeToggle />
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Toggle theme</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <ThemeToggle />
 
-          <NotificationBell />
+          <Button variant="ghost" size="icon" className="relative">
+            <Bell className="h-5 w-5" />
+            <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-red-500 text-[10px] font-medium text-white flex items-center justify-center">
+              3
+            </span>
+            <span className="sr-only">Notifications</span>
+          </Button>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="relative h-8 rounded-full">
+              <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src="/placeholder.svg" alt={userName} />
-                  <AvatarFallback>{initials}</AvatarFallback>
+                  <AvatarFallback className="bg-gradient-to-br from-purple-600 to-blue-600 text-white text-xs">
+                    {userInitials}
+                  </AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuContent className="w-56" align="end" forceMount>
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
                   <p className="text-sm font-medium leading-none">{userName}</p>
-                  <p className="text-xs leading-none text-muted-foreground">{userEmail}</p>
-                  <Badge variant="outline" className={`mt-1 ${getRoleColorClass()}`}>
-                    {userRole?.replace("_", " ")}
-                  </Badge>
+                  <p className="text-xs leading-none text-muted-foreground capitalize">{userRole}</p>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
@@ -165,29 +122,22 @@ export function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
                 <User className="mr-2 h-4 w-4" />
                 <span>Profile</span>
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => handleNavigation("/notifications")}>
-                <Bell className="mr-2 h-4 w-4" />
-                <span>Notifications</span>
-              </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => handleNavigation("/settings")}>
                 <Settings className="mr-2 h-4 w-4" />
                 <span>Settings</span>
               </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => handleNavigation("/notifications")}>
+                <Bell className="mr-2 h-4 w-4" />
+                <span>Notifications</span>
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onSelect={handleSignOut} className="text-red-600 dark:text-red-400">
-                <LogOut className="mr-2 h-4 w-4" />
-                <span>Sign out</span>
+                Sign out
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
-
-      {isSearchOpen && (
-        <div className="px-4 pb-4 md:hidden animate-slide-in">
-          <GlobalSearch />
-        </div>
-      )}
     </header>
   )
 }

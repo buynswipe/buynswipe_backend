@@ -9,6 +9,7 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { useEffect, useState } from "react"
 import { usePathname } from "next/navigation"
 import { isPublicRoute } from "@/lib/public-routes"
+import { ThemeToggle } from "./theme-toggle"
 
 export function SiteHeader({ className }: React.HTMLAttributes<HTMLElement>) {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
@@ -55,10 +56,17 @@ export function SiteHeader({ className }: React.HTMLAttributes<HTMLElement>) {
   }
 
   return (
-    <header className={cn("sticky top-0 z-40 w-full border-b bg-background site-header", className)}>
+    <header
+      className={cn(
+        "sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 site-header",
+        className,
+      )}
+    >
       <div className="container flex h-16 items-center space-x-4 sm:justify-between sm:space-x-0">
         <MainNav />
         <div className="flex flex-1 items-center justify-end space-x-4">
+          <ThemeToggle />
+
           {isLoading ? (
             <div className="h-9 w-20 animate-pulse rounded bg-muted"></div>
           ) : isLoggedIn ? (

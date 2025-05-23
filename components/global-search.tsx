@@ -1,38 +1,31 @@
 "use client"
 
-import * as React from "react"
-import { useRouter } from "next/navigation"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { useState, useEffect, useRef } from "react"
+import { Search, Package, Store, FileText } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import {
-  Command,
   CommandDialog,
   CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
-  CommandSeparator,
 } from "@/components/ui/command"
-import { Search, Package, ShoppingCart, User, Store, CreditCard } from "lucide-react"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { useRouter } from "next/navigation"
 
 export function GlobalSearch() {
-  const router = useRouter()
-  const [open, setOpen] = React.useState(false)
-  const [query, setQuery] = React.useState("")
-  const [results, setResults] = React.useState<any[]>([])
-  const [isSearching, setIsSearching] = React.useState(false)
-  const [categories, setCategories] = React.useState<{
-    orders: any[]
-    products: any[]
-    customers: any[]
-    wholesalers: any[]
-  }>({ orders: [], products: [], customers: [], wholesalers: [] })
-
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState("")
+  const [results, setResults] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
   const supabase = createClientComponentClient()
+  const router = useRouter()
+  const inputRef = useRef<HTMLInputElement>(null)
 
-  React.useEffect(() => {
+  useEffect(() => {
     const down = (e: KeyboardEvent) => {
-      if ((e.key === "k" && (e.metaKey || e.ctrlKey)) || e.key === "/") {
+      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault()
         setOpen((open) => !open)
       }
@@ -42,214 +35,169 @@ export function GlobalSearch() {
     return () => document.removeEventListener("keydown", down)
   }, [])
 
-  const search = React.useCallback(async (term: string) => {
-    if (!term || term.length < 2) {
+  useEffect(() => {
+    if (!open) {
+      setQuery("")
       setResults([])
-      setCategories({ orders: [], products: [], customers: [], wholesalers: [] })
-      return
     }
+  }, [open])
 
-    setIsSearching(true)
-    try {
-      // Here we would typically make API calls to search different entities
-      // For now, let's mock it with some fake data
+  useEffect(() => {
+    const searchTimeout = setTimeout(async () => {
+      if (query.length < 2) {
+        setResults([])
+        return
+      }
 
-      // Wait a bit to simulate loading
-      await new Promise((resolve) => setTimeout(resolve, 300))
+      setLoading(true)
+      try {
+        // Search orders
+        const { data: orders } = await supabase
+          .from("orders")
+          .select("id, status, created_at, total_amount")
+          .or(`id.ilike.%${query}%, reference.ilike.%${query}%`)
+          .limit(5)
 
-      // Simulate results
-      const orders =
-        term === "order"
-          ? [
-              { id: "ord001", name: "Order #12345", type: "order", status: "pending" },
-              { id: "ord002", name: "Order #67890", type: "order", status: "completed" },
-            ]
-          : []
+        // Search products
+        const { data: products } = await supabase
+          .from("products")
+          .select("id, name, sku")
+          .or(`name.ilike.%${query}%, sku.ilike.%${query}%`)
+          .limit(5)
 
-      const products =
-        term === "product"
-          ? [
-              { id: "prod001", name: "Smartphone X1", type: "product", price: "₹12,000" },
-              { id: "prod002", name: "Tablet Pro", type: "product", price: "₹24,000" },
-            ]
-          : []
+        // Search retailers
+        const { data: retailers } = await supabase
+          .from("profiles")
+          .select("id, business_name")
+          .eq("role", "retailer")
+          .ilike("business_name", `%${query}%`)
+          .limit(5)
 
-      const customers =
-        term === "customer"
-          ? [
-              { id: "cust001", name: "Raj Electronics", type: "customer", location: "Mumbai" },
-              { id: "cust002", name: "Sharma Store", type: "customer", location: "Delhi" },
-            ]
-          : []
+        // Search wholesalers
+        const { data: wholesalers } = await supabase
+          .from("profiles")
+          .select("id, business_name")
+          .eq("role", "wholesaler")
+          .ilike("business_name", `%${query}%`)
+          .limit(5)
 
-      const wholesalers =
-        term === "wholesaler"
-          ? [
-              { id: "whole001", name: "Tech Distributors Ltd", type: "wholesaler", location: "Bangalore" },
-              { id: "whole002", name: "Mega Supplies Inc", type: "wholesaler", location: "Chennai" },
-            ]
-          : []
-
-      setCategories({
-        orders,
-        products,
-        customers,
-        wholesalers,
-      })
-
-      setResults([...orders, ...products, ...customers, ...wholesalers])
-    } catch (error) {
-      console.error("Search error:", error)
-    } finally {
-      setIsSearching(false)
-    }
-  }, [])
-
-  React.useEffect(() => {
-    const timer = setTimeout(() => {
-      search(query)
+        // Combine results
+        setResults([
+          ...(orders || []).map((order) => ({
+            type: "order",
+            id: order.id,
+            title: `Order #${order.id.substring(0, 8)}`,
+            description: `${order.status} - ${new Date(order.created_at).toLocaleDateString()}`,
+            url: `/orders/${order.id}`,
+            icon: FileText,
+          })),
+          ...(products || []).map((product) => ({
+            type: "product",
+            id: product.id,
+            title: product.name,
+            description: `SKU: ${product.sku}`,
+            url: `/products/${product.id}`,
+            icon: Package,
+          })),
+          ...(retailers || []).map((retailer) => ({
+            type: "retailer",
+            id: retailer.id,
+            title: retailer.business_name,
+            description: "Retailer",
+            url: `/retailers/${retailer.id}`,
+            icon: Store,
+          })),
+          ...(wholesalers || []).map((wholesaler) => ({
+            type: "wholesaler",
+            id: wholesaler.id,
+            title: wholesaler.business_name,
+            description: "Wholesaler",
+            url: `/wholesalers/${wholesaler.id}`,
+            icon: Store,
+          })),
+        ])
+      } catch (error) {
+        console.error("Search error:", error)
+      } finally {
+        setLoading(false)
+      }
     }, 300)
 
-    return () => clearTimeout(timer)
-  }, [query, search])
+    return () => clearTimeout(searchTimeout)
+  }, [query, supabase])
 
   const handleSelect = (item: any) => {
     setOpen(false)
-
-    switch (item.type) {
-      case "order":
-        router.push(`/orders/${item.id}`)
-        break
-      case "product":
-        router.push(`/manage-products?id=${item.id}`)
-        break
-      case "customer":
-        router.push(`/users?id=${item.id}`)
-        break
-      case "wholesaler":
-        router.push(`/wholesalers/${item.id}`)
-        break
-      default:
-        break
-    }
-  }
-
-  const getItemIcon = (type: string) => {
-    switch (type) {
-      case "order":
-        return <ShoppingCart className="mr-2 h-4 w-4" />
-      case "product":
-        return <Package className="mr-2 h-4 w-4" />
-      case "customer":
-        return <User className="mr-2 h-4 w-4" />
-      case "wholesaler":
-        return <Store className="mr-2 h-4 w-4" />
-      default:
-        return <Search className="mr-2 h-4 w-4" />
-    }
+    router.push(item.url)
   }
 
   return (
     <>
-      <div className="w-full md:w-64 lg:w-80">
-        <button
-          onClick={() => setOpen(true)}
-          className="group w-full flex h-9 items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
-        >
-          <Search className="h-4 w-4" />
-          <span className="text-sm">Search anything...</span>
-          <kbd className="pointer-events-none hidden md:inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground ml-auto">
-            <span className="text-xs">⌘</span>K
-          </kbd>
-        </button>
-      </div>
+      <Button
+        variant="outline"
+        className="relative h-9 w-9 p-0 xl:h-10 xl:w-60 xl:justify-start xl:px-3 xl:py-2"
+        onClick={() => setOpen(true)}
+      >
+        <Search className="h-4 w-4 xl:mr-2" />
+        <span className="hidden xl:inline-flex">Search...</span>
+        <span className="sr-only">Search</span>
+        <kbd className="pointer-events-none absolute right-1.5 top-1.5 hidden h-6 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-xs font-medium opacity-100 xl:flex">
+          <span className="text-xs">⌘</span>K
+        </kbd>
+      </Button>
       <CommandDialog open={open} onOpenChange={setOpen}>
-        <Command shouldFilter={false}>
-          <CommandInput placeholder="Search orders, products, customers..." value={query} onValueChange={setQuery} />
-          <CommandList>
-            <CommandEmpty>
-              {isSearching ? (
-                <div className="py-6 text-center text-sm">
-                  <div
-                    className="animate-spin inline-block w-6 h-6 border-2 border-current border-t-transparent text-primary rounded-full"
-                    role="status"
-                  >
-                    <span className="sr-only">Loading...</span>
-                  </div>
-                  <p className="mt-2">Searching...</p>
-                </div>
-              ) : query.length > 0 ? (
-                "No results found."
-              ) : (
-                "Type a command or search..."
-              )}
-            </CommandEmpty>
-
-            {categories.orders.length > 0 && (
+        <CommandInput
+          placeholder="Search orders, products, retailers..."
+          value={query}
+          onValueChange={setQuery}
+          ref={inputRef}
+        />
+        <CommandList>
+          <CommandEmpty>{loading ? "Searching..." : "No results found."}</CommandEmpty>
+          {results.length > 0 && (
+            <>
               <CommandGroup heading="Orders">
-                {categories.orders.map((item) => (
-                  <CommandItem key={item.id} onSelect={() => handleSelect(item)}>
-                    <ShoppingCart className="mr-2 h-4 w-4" />
-                    <span>{item.name}</span>
-                    <span className="ml-auto text-xs text-muted-foreground capitalize">{item.status}</span>
-                  </CommandItem>
-                ))}
+                {results
+                  .filter((item) => item.type === "order")
+                  .map((item) => (
+                    <CommandItem key={`${item.type}-${item.id}`} onSelect={() => handleSelect(item)}>
+                      <item.icon className="mr-2 h-4 w-4" />
+                      <div className="flex flex-col">
+                        <span>{item.title}</span>
+                        <span className="text-xs text-muted-foreground">{item.description}</span>
+                      </div>
+                    </CommandItem>
+                  ))}
               </CommandGroup>
-            )}
-
-            {categories.products.length > 0 && (
               <CommandGroup heading="Products">
-                {categories.products.map((item) => (
-                  <CommandItem key={item.id} onSelect={() => handleSelect(item)}>
-                    <Package className="mr-2 h-4 w-4" />
-                    <span>{item.name}</span>
-                    <span className="ml-auto text-xs text-muted-foreground">{item.price}</span>
-                  </CommandItem>
-                ))}
+                {results
+                  .filter((item) => item.type === "product")
+                  .map((item) => (
+                    <CommandItem key={`${item.type}-${item.id}`} onSelect={() => handleSelect(item)}>
+                      <item.icon className="mr-2 h-4 w-4" />
+                      <div className="flex flex-col">
+                        <span>{item.title}</span>
+                        <span className="text-xs text-muted-foreground">{item.description}</span>
+                      </div>
+                    </CommandItem>
+                  ))}
               </CommandGroup>
-            )}
-
-            {categories.customers.length > 0 && (
-              <CommandGroup heading="Customers">
-                {categories.customers.map((item) => (
-                  <CommandItem key={item.id} onSelect={() => handleSelect(item)}>
-                    <User className="mr-2 h-4 w-4" />
-                    <span>{item.name}</span>
-                    <span className="ml-auto text-xs text-muted-foreground">{item.location}</span>
-                  </CommandItem>
-                ))}
+              <CommandGroup heading="Businesses">
+                {results
+                  .filter((item) => item.type === "retailer" || item.type === "wholesaler")
+                  .map((item) => (
+                    <CommandItem key={`${item.type}-${item.id}`} onSelect={() => handleSelect(item)}>
+                      <item.icon className="mr-2 h-4 w-4" />
+                      <div className="flex flex-col">
+                        <span>{item.title}</span>
+                        <span className="text-xs text-muted-foreground">{item.description}</span>
+                      </div>
+                    </CommandItem>
+                  ))}
               </CommandGroup>
-            )}
-
-            {categories.wholesalers.length > 0 && (
-              <CommandGroup heading="Wholesalers">
-                {categories.wholesalers.map((item) => (
-                  <CommandItem key={item.id} onSelect={() => handleSelect(item)}>
-                    <Store className="mr-2 h-4 w-4" />
-                    <span>{item.name}</span>
-                    <span className="ml-auto text-xs text-muted-foreground">{item.location}</span>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            )}
-
-            <CommandSeparator />
-            <CommandGroup heading="Suggestions">
-              <CommandItem onSelect={() => router.push("/orders/new")}>
-                <ShoppingCart className="mr-2 h-4 w-4" />
-                <span>Create new order</span>
-              </CommandItem>
-              <CommandItem onSelect={() => router.push("/manage-products?new=true")}>
-                <Package className="mr-2 h-4 w-4" />
-                <span>Add new product</span>
-              </CommandItem>
-              <CommandItem onSelect={() => router.push("/analytics")}>
-                <CreditCard className="mr-2 h-4 w-4" />
-                <span>View analytics</span>
-              </CommandItem>
-            </CommandGroup>
-          </CommandList>
-        </Command>
+            </>
+          )}
+        </CommandList>
       </CommandDialog>
     </>
   )

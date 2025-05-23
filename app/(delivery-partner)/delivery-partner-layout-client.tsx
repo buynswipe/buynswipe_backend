@@ -19,11 +19,11 @@ export function DeliveryPartnerLayoutClient({
         }
       `}</style>
 
-      <div className="grid min-h-screen w-full md:grid-cols-[240px_1fr] lg:grid-cols-[280px_1fr]">
+      <div className="grid min-h-screen w-full md:grid-cols-[280px_1fr] lg:grid-cols-[300px_1fr]">
         <Sidebar className="hidden border-r md:block" />
         <div className="flex flex-col">
           <DeliveryPartnerHeader />
-          <main className="flex-1 p-4 md:p-6 pb-20 md:pb-6">{children}</main>
+          <main className="flex-1 p-4 md:p-6 pb-20 md:pb-6 bg-muted/30">{children}</main>
           <MobileNavigation />
         </div>
       </div>
