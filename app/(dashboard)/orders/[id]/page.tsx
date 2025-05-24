@@ -88,7 +88,14 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
           .eq("id", params.id)
           .single()
 
-        if (error) throw error
+        if (error) {
+          console.error("Error fetching order:", error)
+          throw new Error(`Failed to fetch order: ${error.message}`)
+        }
+
+        if (!data) {
+          throw new Error("Order not found")
+        }
 
         // Check if user is authorized to view this order
         if (

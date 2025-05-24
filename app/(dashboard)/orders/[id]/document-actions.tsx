@@ -1,5 +1,4 @@
 "use client"
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { PrintDocument } from "@/components/documents/print-document"
 import { FileText, FileCheck } from "lucide-react"
