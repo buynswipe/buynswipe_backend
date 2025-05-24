@@ -20,14 +20,31 @@ import {
   MessageSquare,
 } from "lucide-react"
 import Link from "next/link"
+import { OrderErrorBoundary } from "./error-boundary"
+
+// Import types with proper error handling
 import type { Order, UserProfile, OrderItem, Product, DeliveryPartner } from "@/types/database.types"
 
-// Import the PaymentButton component
-import { PaymentButton } from "./payment-button"
-// Import the DocumentActions component
-import { DocumentActions } from "./document-actions"
-// Import the DeliveryTracking component
-import { DeliveryTracking } from "@/components/delivery/delivery-tracking"
+// Dynamic imports to prevent SSR issues
+import dynamic from "next/dynamic"
+
+const PaymentButton = dynamic(() => import("./payment-button").then((mod) => ({ default: mod.PaymentButton })), {
+  loading: () => <div>Loading payment options...</div>,
+  ssr: false,
+})
+
+const DocumentActions = dynamic(() => import("./document-actions").then((mod) => ({ default: mod.DocumentActions })), {
+  loading: () => <div>Loading documents...</div>,
+  ssr: false,
+})
+
+const DeliveryTracking = dynamic(
+  () => import("@/components/delivery/delivery-tracking").then((mod) => ({ default: mod.DeliveryTracking })),
+  {
+    loading: () => <div>Loading tracking...</div>,
+    ssr: false,
+  },
+)
 
 interface OrderWithDetails extends Order {
   retailer: UserProfile
@@ -38,7 +55,7 @@ interface OrderWithDetails extends Order {
   delivery_partner?: DeliveryPartner
 }
 
-export default function OrderDetailPage({ params }: { params: { id: string } }) {
+function OrderDetailPage({ params }: { params: { id: string } }) {
   const [order, setOrder] = useState<OrderWithDetails | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -582,5 +599,13 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
         </div>
       </div>
     </div>
+  )
+}
+
+export default function OrderDetailPageWrapper({ params }: { params: { id: string } }) {
+  return (
+    <OrderErrorBoundary>
+      <OrderDetailPage params={params} />
+    </OrderErrorBoundary>
   )
 }
