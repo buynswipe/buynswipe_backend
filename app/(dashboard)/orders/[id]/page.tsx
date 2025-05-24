@@ -4,70 +4,57 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
-import {
-  Loader2,
-  Store,
-  Package,
-  ArrowLeft,
-  CreditCard,
-  Truck,
-  CheckCircle,
-  Clock,
-  Phone,
-  MessageSquare,
-} from "lucide-react"
+import { Loader2, ArrowLeft, Store, Package } from "lucide-react"
 import Link from "next/link"
-import { OrderErrorBoundary } from "./error-boundary"
 
-// Import types with proper error handling
-import type { Order, UserProfile, OrderItem, Product, DeliveryPartner } from "@/types/database.types"
-
-// Dynamic imports to prevent SSR issues
-import dynamic from "next/dynamic"
-
-const PaymentButton = dynamic(() => import("./payment-button").then((mod) => ({ default: mod.PaymentButton })), {
-  loading: () => <div>Loading payment options...</div>,
-  ssr: false,
-})
-
-const DocumentActions = dynamic(() => import("./document-actions").then((mod) => ({ default: mod.DocumentActions })), {
-  loading: () => <div>Loading documents...</div>,
-  ssr: false,
-})
-
-const DeliveryTracking = dynamic(
-  () => import("@/components/delivery/delivery-tracking").then((mod) => ({ default: mod.DeliveryTracking })),
-  {
-    loading: () => <div>Loading tracking...</div>,
-    ssr: false,
-  },
-)
-
-interface OrderWithDetails extends Order {
-  retailer: UserProfile
-  wholesaler: UserProfile
-  order_items: (OrderItem & {
-    product: Product
-  })[]
-  delivery_partner?: DeliveryPartner
+interface OrderData {
+  id: string
+  status: string
+  created_at: string
+  total_amount: number
+  payment_method: string
+  payment_status: string
+  retailer_id: string
+  wholesaler_id: string
+  order_items: Array<{
+    id: string
+    quantity: number
+    price: number
+    product: {
+      id: string
+      name: string
+    }
+  }>
+  retailer: {
+    id: string
+    business_name: string
+    address: string
+    city: string
+    pincode: string
+    phone: string
+  }
+  wholesaler: {
+    id: string
+    business_name: string
+    address: string
+    city: string
+    pincode: string
+    phone: string
+  }
 }
 
-function OrderDetailPage({ params }: { params: { id: string } }) {
-  const [order, setOrder] = useState<OrderWithDetails | null>(null)
+export default function OrderDetailPage({ params }: { params: { id: string } }) {
+  const [order, setOrder] = useState<OrderData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [userRole, setUserRole] = useState<string | null>(null)
-  const [userId, setUserId] = useState<string | null>(null)
-  const [showDeliveryTracking, setShowDeliveryTracking] = useState(false)
   const supabase = createClientComponentClient()
   const router = useRouter()
 
-  // Fetch order details
   useEffect(() => {
-    const fetchOrderDetails = async () => {
+    const fetchOrder = async () => {
       try {
         setIsLoading(true)
 
@@ -75,123 +62,81 @@ function OrderDetailPage({ params }: { params: { id: string } }) {
         const {
           data: { session },
         } = await supabase.auth.getSession()
-
         if (!session) {
-          throw new Error("Not authenticated")
+          setError("Not authenticated")
+          return
         }
 
-        setUserId(session.user.id)
-
         // Get user profile
-        const { data: profile, error: profileError } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", session.user.id)
-          .single()
+        const { data: profile } = await supabase.from("profiles").select("role").eq("id", session.user.id).single()
 
-        if (profileError) throw profileError
-        setUserRole(profile.role)
+        if (profile) {
+          setUserRole(profile.role)
+        }
 
-        // Fetch order with related data
-        const { data, error } = await supabase
+        // Fetch order
+        const { data: orderData, error: orderError } = await supabase
           .from("orders")
           .select(`
             *,
-            retailer:profiles!retailer_id(*),
-            wholesaler:profiles!wholesaler_id(*),
-            order_items(*, product:products(*)),
-            delivery_partner:delivery_partners(*)
+            retailer:profiles!retailer_id(id, business_name, address, city, pincode, phone),
+            wholesaler:profiles!wholesaler_id(id, business_name, address, city, pincode, phone),
+            order_items(
+              id,
+              quantity,
+              price,
+              product:products(id, name)
+            )
           `)
           .eq("id", params.id)
           .single()
 
-        if (error) {
-          console.error("Error fetching order:", error)
-          throw new Error(`Failed to fetch order: ${error.message}`)
+        if (orderError) {
+          console.error("Order fetch error:", orderError)
+          setError("Failed to load order")
+          return
         }
 
-        if (!data) {
-          throw new Error("Order not found")
+        if (!orderData) {
+          setError("Order not found")
+          return
         }
 
-        // Check if user is authorized to view this order
-        if (
-          (profile.role === "retailer" && data.retailer_id !== session.user.id) ||
-          (profile.role === "wholesaler" && data.wholesaler_id !== session.user.id) ||
-          (profile.role === "delivery_partner" && data.delivery_partner_id !== session.user.id)
-        ) {
-          throw new Error("Unauthorized")
-        }
-
-        setOrder(data as OrderWithDetails)
-
-        // Show delivery tracking for dispatched orders with delivery partner
-        if (
-          (data.status === "dispatched" || data.status === "delivered") &&
-          data.delivery_partner_id &&
-          profile.role === "retailer"
-        ) {
-          setShowDeliveryTracking(true)
-        }
-      } catch (error: any) {
-        console.error("Error fetching order details:", error)
-        setError(error.message)
+        setOrder(orderData)
+      } catch (err) {
+        console.error("Unexpected error:", err)
+        setError("An unexpected error occurred")
       } finally {
         setIsLoading(false)
       }
     }
 
-    fetchOrderDetails()
-  }, [supabase, params.id])
+    fetchOrder()
+  }, [params.id, supabase])
 
-  // Format date
-  const formatDate = (dateString: string | undefined) => {
-    if (!dateString) return "N/A"
-    const date = new Date(dateString)
-    return date.toLocaleDateString("en-IN", {
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("en-IN", {
       day: "numeric",
       month: "short",
       year: "numeric",
     })
   }
 
-  // Format time
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleTimeString("en-IN", {
-      hour: "2-digit",
-      minute: "2-digit",
-    })
-  }
-
-  // Get status badge
   const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "placed":
-        return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200">Placed</Badge>
-      case "confirmed":
-        return <Badge className="bg-green-100 text-green-800 hover:bg-green-200">Confirmed</Badge>
-      case "dispatched":
-        return <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-200">Dispatched</Badge>
-      case "delivered":
-        return <Badge className="bg-green-100 text-green-800 hover:bg-green-200">Delivered</Badge>
-      case "rejected":
-        return <Badge variant="destructive">Rejected</Badge>
-      default:
-        return <Badge variant="outline">{status}</Badge>
+    const statusConfig = {
+      placed: { label: "Placed", className: "bg-blue-100 text-blue-800" },
+      confirmed: { label: "Confirmed", className: "bg-green-100 text-green-800" },
+      dispatched: { label: "Dispatched", className: "bg-purple-100 text-purple-800" },
+      delivered: { label: "Delivered", className: "bg-green-100 text-green-800" },
+      rejected: { label: "Rejected", className: "bg-red-100 text-red-800" },
     }
-  }
 
-  // Get payment status badge
-  const getPaymentStatusBadge = (status: string) => {
-    switch (status) {
-      case "paid":
-        return <Badge className="bg-green-100 text-green-800 hover:bg-green-200">Paid</Badge>
-      case "pending":
-        return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200">Pending</Badge>
-      default:
-        return <Badge variant="outline">{status}</Badge>
+    const config = statusConfig[status as keyof typeof statusConfig] || {
+      label: status,
+      className: "bg-gray-100 text-gray-800",
     }
+
+    return <Badge className={config.className}>{config.label}</Badge>
   }
 
   if (isLoading) {
@@ -202,410 +147,174 @@ function OrderDetailPage({ params }: { params: { id: string } }) {
     )
   }
 
-  if (error || !order) {
+  if (error) {
     return (
       <div className="space-y-4">
-        <Button variant="ghost" size="sm" asChild className="mb-4">
-          <Link href={userRole === "retailer" ? "/orders" : "/order-management"}>
+        <Button variant="ghost" size="sm" asChild>
+          <Link href="/orders">
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
+            Back to Orders
           </Link>
         </Button>
-        <div className="p-4 bg-red-50 text-red-500 rounded-md">Error: {error || "Order not found"}</div>
+        <Card>
+          <CardContent className="p-6">
+            <div className="text-center">
+              <h3 className="text-lg font-semibold text-red-600 mb-2">Error Loading Order</h3>
+              <p className="text-gray-600 mb-4">{error}</p>
+              <Button onClick={() => window.location.reload()}>Try Again</Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (!order) {
+    return (
+      <div className="space-y-4">
+        <Button variant="ghost" size="sm" asChild>
+          <Link href="/orders">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Orders
+          </Link>
+        </Button>
+        <Card>
+          <CardContent className="p-6">
+            <div className="text-center">
+              <h3 className="text-lg font-semibold mb-2">Order Not Found</h3>
+              <p className="text-gray-600">The requested order could not be found.</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     )
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center">
-        <Button variant="ghost" size="sm" asChild className="mr-2">
+      {/* Header */}
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="sm" asChild>
           <Link href={userRole === "retailer" ? "/orders" : "/order-management"}>
-            <ArrowLeft className="h-4 w-4 mr-1" />
+            <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Link>
         </Button>
-        <h2 className="text-xl md:text-2xl font-bold tracking-tight">Order #{order.id.substring(0, 8)}</h2>
+        <h1 className="text-2xl font-bold">Order #{order.id.substring(0, 8)}</h1>
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
+        {/* Main Content */}
         <div className="md:col-span-2 space-y-6">
+          {/* Order Details Card */}
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Order Details</CardTitle>
-              <CardDescription>
-                Placed on {formatDate(order.created_at)} at {order.created_at ? formatTime(order.created_at) : "N/A"}
-              </CardDescription>
+            <CardHeader>
+              <CardTitle>Order Details</CardTitle>
+              <CardDescription>Placed on {formatDate(order.created_at)}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex flex-wrap gap-2">
+              {/* Status */}
+              <div className="flex gap-2">
                 {getStatusBadge(order.status)}
                 <Badge variant="outline">{order.payment_method === "cod" ? "Cash on Delivery" : "UPI Payment"}</Badge>
-                {getPaymentStatusBadge(order.payment_status)}
+                <Badge variant={order.payment_status === "paid" ? "default" : "secondary"}>
+                  {order.payment_status === "paid" ? "Paid" : "Pending"}
+                </Badge>
               </div>
 
-              <div className="space-y-4">
-                <div>
-                  <h4 className="text-sm font-medium mb-2">Order Items</h4>
-                  <div className="space-y-2">
-                    {order.order_items.map((item) => (
-                      <div key={item.id} className="flex justify-between items-center">
-                        <div className="flex items-center gap-2">
-                          <Package className="h-4 w-4 text-muted-foreground" />
-                          <div>
-                            <span>{item.product.name}</span>
-                            <p className="text-sm text-muted-foreground">
-                              ₹{item.price.toFixed(2)} × {item.quantity}
-                            </p>
-                          </div>
+              {/* Order Items */}
+              <div>
+                <h4 className="font-medium mb-3">Order Items</h4>
+                <div className="space-y-2">
+                  {order.order_items.map((item) => (
+                    <div key={item.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <Package className="h-4 w-4 text-gray-500" />
+                        <div>
+                          <p className="font-medium">{item.product.name}</p>
+                          <p className="text-sm text-gray-600">
+                            ₹{item.price.toFixed(2)} × {item.quantity}
+                          </p>
                         </div>
-                        <span className="font-medium">₹{(item.price * item.quantity).toFixed(2)}</span>
                       </div>
-                    ))}
-                  </div>
+                      <span className="font-medium">₹{(item.price * item.quantity).toFixed(2)}</span>
+                    </div>
+                  ))}
                 </div>
+              </div>
 
-                <Separator />
-
-                <div className="flex justify-between font-medium">
+              {/* Total */}
+              <div className="border-t pt-4">
+                <div className="flex justify-between items-center text-lg font-semibold">
                   <span>Total Amount</span>
                   <span>₹{order.total_amount.toFixed(2)}</span>
                 </div>
-
-                {order.notes && (
-                  <>
-                    <Separator />
-                    <div>
-                      <h4 className="text-sm font-medium mb-2">Order Notes</h4>
-                      <p className="text-sm">{order.notes}</p>
-                    </div>
-                  </>
-                )}
-
-                {order.delivery_instructions && (
-                  <>
-                    <Separator />
-                    <div>
-                      <h4 className="text-sm font-medium mb-2">Delivery Instructions</h4>
-                      <p className="text-sm">{order.delivery_instructions}</p>
-                    </div>
-                  </>
-                )}
-
-                {order.estimated_delivery && (
-                  <>
-                    <Separator />
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-muted-foreground" />
-                      <span>
-                        Estimated Delivery: <span className="font-medium">{formatDate(order.estimated_delivery)}</span>
-                      </span>
-                    </div>
-                  </>
-                )}
-
-                {order.delivery_partner && (
-                  <>
-                    <Separator />
-                    <div>
-                      <h4 className="text-sm font-medium mb-2">Delivery Partner</h4>
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <Truck className="h-4 w-4 text-muted-foreground" />
-                          <span className="font-medium">{order.delivery_partner.name}</span>
-                        </div>
-                        <p className="text-sm">Phone: {order.delivery_partner.phone}</p>
-                        <p className="text-sm">
-                          Vehicle: {order.delivery_partner.vehicle_type} ({order.delivery_partner.vehicle_number})
-                        </p>
-                      </div>
-                    </div>
-                  </>
-                )}
               </div>
-            </CardContent>
-            <CardFooter>
-              {userRole === "retailer" && order.payment_method === "upi" && order.payment_status === "pending" && (
-                <Button className="w-full" asChild>
-                  <Link href={`/orders/${order.id}/pay`}>
-                    <CreditCard className="mr-2 h-4 w-4" />
-                    Make Payment
-                  </Link>
-                </Button>
-              )}
-
-              {userRole === "wholesaler" &&
-                order.payment_method === "cod" &&
-                order.payment_status === "pending" &&
-                order.status === "delivered" && (
-                  <PaymentButton
-                    order={order}
-                    onPaymentComplete={() => {
-                      // Update local state
-                      setOrder((prevOrder) => {
-                        if (!prevOrder) return null
-                        return {
-                          ...prevOrder,
-                          payment_status: "paid",
-                        }
-                      })
-                    }}
-                  />
-                )}
-            </CardFooter>
-          </Card>
-
-          {showDeliveryTracking && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Delivery Tracking</CardTitle>
-                <CardDescription>Track your order's delivery status in real-time</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <DeliveryTracking orderId={order.id} />
-              </CardContent>
-              {order.delivery_partner && (
-                <CardFooter className="flex flex-col sm:flex-row gap-2">
-                  <Button variant="outline" className="w-full sm:w-auto" asChild>
-                    <Link href={`tel:${order.delivery_partner.phone}`}>
-                      <Phone className="mr-2 h-4 w-4" />
-                      Call Delivery Partner
-                    </Link>
-                  </Button>
-                  <Button variant="outline" className="w-full sm:w-auto">
-                    <MessageSquare className="mr-2 h-4 w-4" />
-                    Send Message
-                  </Button>
-                </CardFooter>
-              )}
-            </Card>
-          )}
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Order Timeline</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="relative border-l border-gray-200 pl-6 pb-2">
-                <div className="absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full border border-white bg-blue-500"></div>
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold">Order Placed</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {formatDate(order.created_at)} at {order.created_at ? formatTime(order.created_at) : "N/A"}
-                  </p>
-                </div>
-              </div>
-
-              {order.status !== "placed" && order.status !== "rejected" && (
-                <div className="relative border-l border-gray-200 pl-6 pb-2">
-                  <div className="absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full border border-white bg-green-500"></div>
-                  <div className="mb-6">
-                    <h3 className="text-lg font-semibold">Order Confirmed</h3>
-                    <p className="text-sm text-muted-foreground">
-                      The wholesaler has confirmed your order and is preparing it.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {(order.status === "dispatched" || order.status === "delivered") && (
-                <div className="relative border-l border-gray-200 pl-6 pb-2">
-                  <div className="absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full border border-white bg-purple-500"></div>
-                  <div className="mb-6">
-                    <h3 className="text-lg font-semibold">Order Dispatched</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Your order has been dispatched and is on its way.
-                      {order.estimated_delivery && (
-                        <span> Expected delivery by {formatDate(order.estimated_delivery)}.</span>
-                      )}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {order.status === "delivered" && (
-                <div className="relative pl-6">
-                  <div className="absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full border border-white bg-green-500"></div>
-                  <div>
-                    <h3 className="text-lg font-semibold">Order Delivered</h3>
-                    <p className="text-sm text-muted-foreground">Your order has been delivered successfully.</p>
-                  </div>
-                </div>
-              )}
-
-              {order.status === "rejected" && (
-                <div className="relative pl-6">
-                  <div className="absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full border border-white bg-red-500"></div>
-                  <div>
-                    <h3 className="text-lg font-semibold">Order Rejected</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Unfortunately, the wholesaler was unable to fulfill this order.
-                    </p>
-                  </div>
-                </div>
-              )}
             </CardContent>
           </Card>
         </div>
 
+        {/* Sidebar */}
         <div className="space-y-6">
+          {/* Business Info */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">{userRole === "retailer" ? "Wholesaler" : "Retailer"}</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Store className="h-4 w-4" />
+                {userRole === "retailer" ? "Wholesaler" : "Retailer"}
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <Store className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-medium">
-                    {userRole === "retailer" ? order.wholesaler.business_name : order.retailer.business_name}
-                  </span>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm">
-                    {userRole === "retailer" ? order.wholesaler.address : order.retailer.address}
-                  </p>
-                  <p className="text-sm">
-                    {userRole === "retailer" ? order.wholesaler.city : order.retailer.city},{" "}
-                    {userRole === "retailer" ? order.wholesaler.pincode : order.retailer.pincode}
-                  </p>
-                  <p className="text-sm">
-                    Phone: {userRole === "retailer" ? order.wholesaler.phone : order.retailer.phone}
-                  </p>
-                </div>
+              <div className="space-y-2">
+                <p className="font-medium">
+                  {userRole === "retailer" ? order.wholesaler.business_name : order.retailer.business_name}
+                </p>
+                <p className="text-sm text-gray-600">
+                  {userRole === "retailer" ? order.wholesaler.address : order.retailer.address}
+                </p>
+                <p className="text-sm text-gray-600">
+                  {userRole === "retailer" ? order.wholesaler.city : order.retailer.city},{" "}
+                  {userRole === "retailer" ? order.wholesaler.pincode : order.retailer.pincode}
+                </p>
+                <p className="text-sm text-gray-600">
+                  Phone: {userRole === "retailer" ? order.wholesaler.phone : order.retailer.phone}
+                </p>
               </div>
             </CardContent>
-            {userRole === "retailer" && order.status !== "rejected" && (
-              <CardFooter>
-                <Button variant="outline" className="w-full" asChild>
-                  <Link href={`tel:${order.wholesaler.phone}`}>
-                    <Phone className="mr-2 h-4 w-4" />
-                    Call Wholesaler
-                  </Link>
-                </Button>
-              </CardFooter>
-            )}
           </Card>
 
+          {/* Payment Info */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Payment Information</CardTitle>
+              <CardTitle>Payment Information</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Payment Method:</span>
-                  <span>{order.payment_method === "cod" ? "Cash on Delivery" : "UPI Payment"}</span>
+                  <span className="text-sm text-gray-600">Method:</span>
+                  <span className="text-sm font-medium">
+                    {order.payment_method === "cod" ? "Cash on Delivery" : "UPI Payment"}
+                  </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Payment Status:</span>
+                  <span className="text-sm text-gray-600">Status:</span>
                   <span
-                    className={
-                      order.payment_status === "paid" ? "text-green-600 font-medium" : "text-yellow-600 font-medium"
-                    }
+                    className={`text-sm font-medium ${
+                      order.payment_status === "paid" ? "text-green-600" : "text-yellow-600"
+                    }`}
                   >
                     {order.payment_status.charAt(0).toUpperCase() + order.payment_status.slice(1)}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Total Amount:</span>
-                  <span className="font-medium">₹{order.total_amount.toFixed(2)}</span>
+                  <span className="text-sm text-gray-600">Amount:</span>
+                  <span className="text-sm font-medium">₹{order.total_amount.toFixed(2)}</span>
                 </div>
               </div>
             </CardContent>
-            {userRole === "retailer" && order.payment_method === "upi" && order.payment_status === "pending" && (
-              <CardFooter>
-                <Button className="w-full" asChild>
-                  <Link href={`/orders/${order.id}/pay`}>
-                    <CreditCard className="mr-2 h-4 w-4" />
-                    Make Payment
-                  </Link>
-                </Button>
-              </CardFooter>
-            )}
-
-            {userRole === "wholesaler" &&
-              order.payment_method === "cod" &&
-              order.payment_status === "pending" &&
-              order.status === "delivered" && (
-                <CardFooter>
-                  <PaymentButton
-                    order={order}
-                    onPaymentComplete={() => {
-                      // Update local state
-                      setOrder((prevOrder) => {
-                        if (!prevOrder) return null
-                        return {
-                          ...prevOrder,
-                          payment_status: "paid",
-                        }
-                      })
-                    }}
-                  />
-                </CardFooter>
-              )}
           </Card>
-
-          {/* Add the DocumentActions component */}
-          {userRole && order && <DocumentActions order={order} userRole={userRole} />}
-
-          {userRole === "wholesaler" && order.status === "confirmed" && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Actions</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Button className="w-full" asChild>
-                  <Link href={`/order-management?tab=confirmed`}>
-                    <Truck className="mr-2 h-4 w-4" />
-                    Dispatch Order
-                  </Link>
-                </Button>
-                {!order.delivery_partner && (
-                  <Button variant="outline" className="w-full" asChild>
-                    <Link href={`/order-management?tab=confirmed`}>
-                      <Truck className="mr-2 h-4 w-4" />
-                      Assign Delivery Partner
-                    </Link>
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {userRole === "wholesaler" && order.status === "dispatched" && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Actions</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Button className="w-full" asChild>
-                  <Link href={`/order-management?tab=dispatched`}>
-                    <CheckCircle className="mr-2 h-4 w-4" />
-                    Mark as Delivered
-                  </Link>
-                </Button>
-                {!order.delivery_partner && (
-                  <Button variant="outline" className="w-full" asChild>
-                    <Link href={`/order-management?tab=dispatched`}>
-                      <Truck className="mr-2 h-4 w-4" />
-                      Assign Delivery Partner
-                    </Link>
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          )}
         </div>
       </div>
     </div>
-  )
-}
-
-export default function OrderDetailPageWrapper({ params }: { params: { id: string } }) {
-  return (
-    <OrderErrorBoundary>
-      <OrderDetailPage params={params} />
-    </OrderErrorBoundary>
   )
 }
