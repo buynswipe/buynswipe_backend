@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Menu, Search, User } from "lucide-react"
+import { Bell, Menu, Search, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -16,7 +16,6 @@ import { useRouter } from "next/navigation"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { DeliveryPartnerSidebar } from "./sidebar"
-import { NotificationBell } from "@/components/notifications/notification-bell"
 
 export function DeliveryPartnerHeader() {
   const [userName, setUserName] = useState("")
@@ -25,24 +24,20 @@ export function DeliveryPartnerHeader() {
 
   useEffect(() => {
     const fetchUserProfile = async () => {
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession()
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
 
-        if (session) {
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("business_name")
-            .eq("id", session.user.id)
-            .single()
+      if (session) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("business_name")
+          .eq("id", session.user.id)
+          .single()
 
-          if (profile) {
-            setUserName(profile.business_name || "Delivery Partner")
-          }
+        if (profile) {
+          setUserName(profile.business_name)
         }
-      } catch (error) {
-        console.error("Error fetching profile:", error)
       }
     }
 
@@ -50,12 +45,8 @@ export function DeliveryPartnerHeader() {
   }, [supabase])
 
   const handleSignOut = async () => {
-    try {
-      await supabase.auth.signOut()
-      router.push("/login")
-    } catch (error) {
-      console.error("Error signing out:", error)
-    }
+    await supabase.auth.signOut()
+    router.push("/login")
   }
 
   const handleNavigation = (path: string) => {
@@ -96,7 +87,11 @@ export function DeliveryPartnerHeader() {
 
           <ThemeToggle />
 
-          <NotificationBell />
+          <Button variant="ghost" size="icon" className="relative">
+            <Bell className="h-5 w-5" />
+            <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-destructive"></span>
+            <span className="sr-only">Notifications</span>
+          </Button>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -118,6 +113,7 @@ export function DeliveryPartnerHeader() {
                 <span>Profile</span>
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => handleNavigation("/delivery-partner/notifications")}>
+                <Bell className="mr-2 h-4 w-4" />
                 <span>Notifications</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />

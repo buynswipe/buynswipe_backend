@@ -1,53 +1,51 @@
-import { Suspense } from "react"
-import { OptimizedDashboard } from "./optimized-dashboard"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
+"use client"
 
-// Loading fallback component
-function DashboardSkeleton() {
-  return (
-    <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Card key={i}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <Skeleton className="h-4 w-24" />
-              <Skeleton className="h-4 w-4" />
-            </CardHeader>
-            <CardContent>
-              <Skeleton className="h-8 w-16 mb-2" />
-              <Skeleton className="h-3 w-20" />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-      <Card>
-        <CardHeader>
-          <Skeleton className="h-6 w-32" />
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-16 w-full" />
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
+import { useRouter } from "next/navigation"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import DashboardContent from "./dashboard-content"
 
 export default function DashboardPage() {
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">Welcome back! Here's what's happening with your business.</p>
-      </div>
+  const router = useRouter()
+  const supabase = createClientComponentClient()
 
-      <Suspense fallback={<DashboardSkeleton />}>
-        <OptimizedDashboard />
-      </Suspense>
-    </div>
-  )
+  const checkUserRole = async () => {
+    try {
+      // Get session
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      if (!session) {
+        router.push("/login")
+        return
+      }
+
+      // Get user profile to check role
+      const { data: profile } = await supabase.from("profiles").select("role").eq("id", session.user.id).single()
+
+      // Redirect based on role
+      if (profile?.role === "delivery_partner") {
+        console.log("Redirecting delivery partner to /delivery-partner/dashboard")
+        router.push("/delivery-partner/dashboard")
+      } else if (profile?.role === "wholesaler") {
+        console.log("Redirecting wholesaler to /wholesaler-dashboard")
+        router.push("/wholesaler-dashboard")
+      } else if (profile?.role === "retailer") {
+        // For retailers, load the retailer dashboard
+        router.push("/dashboard/main")
+      } else if (profile?.role === "admin") {
+        // For admins, load the admin dashboard
+        router.push("/dashboard/main")
+      } else {
+        // For unknown roles, still try to redirect to a safe page
+        router.push("/dashboard/main")
+      }
+    } catch (error) {
+      console.error("Error checking user role:", error)
+      // If there's an error, still try to redirect to a safe page
+      router.push("/dashboard/main")
+    }
+  }
+
+  return <DashboardContent />
 }
