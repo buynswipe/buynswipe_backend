@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Bell, Menu, Search, User, Settings } from "lucide-react"
+import { Menu, Search, User, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -17,6 +17,7 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Sidebar } from "./sidebar"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { NotificationBell } from "@/components/notifications/notification-bell"
 
 export function DashboardHeader() {
   const [userName, setUserName] = useState("")
@@ -27,22 +28,26 @@ export function DashboardHeader() {
 
   useEffect(() => {
     const fetchUserProfile = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
 
-      if (session) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("business_name, role")
-          .eq("id", session.user.id)
-          .single()
+        if (session) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("business_name, role")
+            .eq("id", session.user.id)
+            .single()
 
-        if (profile) {
-          setUserName(profile.business_name)
-          setUserRole(profile.role)
-          setUserInitials(profile.business_name?.substring(0, 2).toUpperCase() || "RB")
+          if (profile) {
+            setUserName(profile.business_name || "User")
+            setUserRole(profile.role || "user")
+            setUserInitials(profile.business_name?.substring(0, 2).toUpperCase() || "RB")
+          }
         }
+      } catch (error) {
+        console.error("Error fetching profile:", error)
       }
     }
 
@@ -50,8 +55,12 @@ export function DashboardHeader() {
   }, [supabase])
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    router.push("/login")
+    try {
+      await supabase.auth.signOut()
+      router.push("/login")
+    } catch (error) {
+      console.error("Error signing out:", error)
+    }
   }
 
   const handleNavigation = (path: string) => {
@@ -92,13 +101,7 @@ export function DashboardHeader() {
 
           <ThemeToggle />
 
-          <Button variant="ghost" size="icon" className="relative">
-            <Bell className="h-5 w-5" />
-            <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-red-500 text-[10px] font-medium text-white flex items-center justify-center">
-              3
-            </span>
-            <span className="sr-only">Notifications</span>
-          </Button>
+          <NotificationBell />
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -127,7 +130,6 @@ export function DashboardHeader() {
                 <span>Settings</span>
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => handleNavigation("/notifications")}>
-                <Bell className="mr-2 h-4 w-4" />
                 <span>Notifications</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
