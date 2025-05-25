@@ -25,6 +25,7 @@ export function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+  const supabase = createClientComponentClient()
 
   useEffect(() => {
     loadNotifications()
@@ -33,9 +34,6 @@ export function NotificationBell() {
   const loadNotifications = async () => {
     try {
       setLoading(true)
-
-      // Create client-side supabase instance
-      const supabase = createClientComponentClient()
       const {
         data: { session },
       } = await supabase.auth.getSession()
