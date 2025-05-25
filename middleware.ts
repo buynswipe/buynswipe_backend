@@ -4,32 +4,52 @@ import type { NextRequest } from "next/server"
 
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next()
+  const { pathname } = req.nextUrl
+
+  // Skip middleware for static files and API routes
+  if (
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/api") ||
+    pathname.includes(".") ||
+    pathname.startsWith("/favicon")
+  ) {
+    return res
+  }
 
   try {
-    // Create a Supabase client configured to use cookies
     const supabase = createMiddlewareClient({ req, res })
-
-    // Refresh session if expired - required for Server Components
     const {
       data: { session },
     } = await supabase.auth.getSession()
 
-    // Protected routes
-    const protectedPaths = ["/dashboard", "/orders", "/products", "/wholesalers", "/delivery-partner"]
-    const isProtectedPath = protectedPaths.some((path) => req.nextUrl.pathname.startsWith(path))
+    // Public routes that don't require authentication
+    const publicRoutes = [
+      "/",
+      "/login",
+      "/register",
+      "/about",
+      "/contact",
+      "/features",
+      "/benefits",
+      "/testimonials",
+      "/company",
+      "/products",
+      "/resources",
+      "/register/success",
+      "/pending-approval",
+    ]
 
-    // Redirect to login if accessing protected route without session
-    if (isProtectedPath && !session) {
+    const isPublicRoute = publicRoutes.some((route) => pathname === route || pathname.startsWith(route))
+
+    // If no session and trying to access protected route
+    if (!session && !isPublicRoute) {
       const redirectUrl = new URL("/login", req.url)
-      redirectUrl.searchParams.set("redirectTo", req.nextUrl.pathname)
+      redirectUrl.searchParams.set("redirectTo", pathname)
       return NextResponse.redirect(redirectUrl)
     }
 
-    // Redirect to dashboard if accessing auth pages with session
-    const authPaths = ["/login", "/register"]
-    const isAuthPath = authPaths.some((path) => req.nextUrl.pathname.startsWith(path))
-
-    if (isAuthPath && session) {
+    // If has session and trying to access auth pages
+    if (session && (pathname === "/login" || pathname === "/register")) {
       return NextResponse.redirect(new URL("/dashboard", req.url))
     }
 
@@ -41,14 +61,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder
-     */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
 }
