@@ -6,12 +6,7 @@ import { AlertCircle, Info } from "lucide-react"
 import { OrderTrackingClient } from "./client"
 import { logError } from "@/lib/debug-helpers"
 import { directOrderService } from "@/lib/direct-order-service"
-
-interface DeliveryTrackingPageProps {
-  params: {
-    id: string
-  }
-}
+import type { DeliveryTrackingPageProps } from "@/types/page-props"
 
 export const dynamic = "force-dynamic"
 export const fetchCache = "force-no-store"

@@ -47,7 +47,7 @@ export default function OrderDetailsPage() {
   useEffect(() => {
     async function fetchOrder() {
       try {
-        if (!params?.id) {
+        if (!params?.id || typeof params.id !== "string") {
           setError("Order ID not found")
           return
         }

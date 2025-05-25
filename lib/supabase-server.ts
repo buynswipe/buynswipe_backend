@@ -10,7 +10,7 @@ export const createServerSupabaseClient = cache(() => {
 })
 
 // Service role client for server-side operations
-export const createServerClient = () => {
+export const createClient = () => {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 
@@ -25,6 +25,9 @@ export const createServerClient = () => {
     },
   })
 }
+
+// Alternative export for compatibility
+export const createServerClient = createClient
 
 // Helper to get current user in server components
 export const getCurrentUserServer = async () => {
