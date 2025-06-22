@@ -5,10 +5,12 @@
   "scripts": {
     "build": "next build",
     "dev": "next dev",
+    "install:no-frozen": "pnpm install --no-frozen-lockfile",
     "lint": "next lint",
     "migrate:delivery-partners": "ts-node --project tsconfig.json scripts/create-delivery-partners-table.ts",
     "seed": "ts-node --project tsconfig.json scripts/seed-db.ts",
-    "start": "next start"
+    "start": "next start",
+    "update-lockfile": "bash scripts/update-lockfile.sh"
   },
   "overrides": {
     "camelcase-css": "^2.0.1"
