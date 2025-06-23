@@ -79,12 +79,6 @@ export function getNavigationItems(role: string): SidebarNavItem[] {
   // Retailer-specific navigation items
   const retailerItems: SidebarNavItem[] = [
     {
-      title: "POS System",
-      href: "/pos",
-      icon: CreditCard,
-      roles: ["retailer"],
-    },
-    {
       title: "Products",
       href: "/manage-products",
       icon: Package,

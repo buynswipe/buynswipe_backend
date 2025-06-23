@@ -57,24 +57,50 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
     const fetchOrder = async () => {
       try {
         setIsLoading(true)
+        setError(null)
 
         // Get user session
         const {
           data: { session },
+          error: sessionError,
         } = await supabase.auth.getSession()
+
+        if (sessionError) {
+          console.error("Session error:", sessionError)
+          setError("Authentication error")
+          return
+        }
+
         if (!session) {
           setError("Not authenticated")
+          router.push("/login")
           return
         }
 
         // Get user profile
-        const { data: profile } = await supabase.from("profiles").select("role").eq("id", session.user.id).single()
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", session.user.id)
+          .single()
+
+        if (profileError) {
+          console.error("Profile error:", profileError)
+          setError("Failed to load user profile")
+          return
+        }
 
         if (profile) {
           setUserRole(profile.role)
         }
 
-        // Fetch order
+        // Validate order ID
+        if (!params.id || params.id.length < 8) {
+          setError("Invalid order ID")
+          return
+        }
+
+        // Fetch order with proper error handling
         const { data: orderData, error: orderError } = await supabase
           .from("orders")
           .select(`
@@ -89,16 +115,23 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
             )
           `)
           .eq("id", params.id)
-          .single()
+          .maybeSingle()
 
         if (orderError) {
           console.error("Order fetch error:", orderError)
-          setError("Failed to load order")
+          setError("Failed to load order details")
           return
         }
 
         if (!orderData) {
           setError("Order not found")
+          return
+        }
+
+        // Validate order data structure
+        if (!orderData.retailer || !orderData.wholesaler) {
+          console.error("Incomplete order data:", orderData)
+          setError("Order data is incomplete")
           return
         }
 
@@ -111,15 +144,24 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
       }
     }
 
-    fetchOrder()
-  }, [params.id, supabase])
+    if (params.id) {
+      fetchOrder()
+    } else {
+      setError("No order ID provided")
+      setIsLoading(false)
+    }
+  }, [params.id, supabase, router])
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-IN", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    })
+    try {
+      return new Date(dateString).toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      })
+    } catch (err) {
+      return "Invalid date"
+    }
   }
 
   const getStatusBadge = (status: string) => {
@@ -132,7 +174,7 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
     }
 
     const config = statusConfig[status as keyof typeof statusConfig] || {
-      label: status,
+      label: status || "Unknown",
       className: "bg-gray-100 text-gray-800",
     }
 
@@ -143,6 +185,7 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
     return (
       <div className="flex justify-center items-center h-64">
         <Loader2 className="h-8 w-8 animate-spin" />
+        <span className="ml-2">Loading order details...</span>
       </div>
     )
   }
@@ -161,7 +204,12 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
             <div className="text-center">
               <h3 className="text-lg font-semibold text-red-600 mb-2">Error Loading Order</h3>
               <p className="text-gray-600 mb-4">{error}</p>
-              <Button onClick={() => window.location.reload()}>Try Again</Button>
+              <div className="space-x-2">
+                <Button onClick={() => window.location.reload()}>Try Again</Button>
+                <Button variant="outline" asChild>
+                  <Link href="/orders">Go Back</Link>
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -226,20 +274,24 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
               <div>
                 <h4 className="font-medium mb-3">Order Items</h4>
                 <div className="space-y-2">
-                  {order.order_items.map((item) => (
-                    <div key={item.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <Package className="h-4 w-4 text-gray-500" />
-                        <div>
-                          <p className="font-medium">{item.product.name}</p>
-                          <p className="text-sm text-gray-600">
-                            ₹{item.price.toFixed(2)} × {item.quantity}
-                          </p>
+                  {order.order_items && order.order_items.length > 0 ? (
+                    order.order_items.map((item) => (
+                      <div key={item.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <Package className="h-4 w-4 text-gray-500" />
+                          <div>
+                            <p className="font-medium">{item.product?.name || "Unknown Product"}</p>
+                            <p className="text-sm text-gray-600">
+                              ₹{(item.price || 0).toFixed(2)} × {item.quantity || 0}
+                            </p>
+                          </div>
                         </div>
+                        <span className="font-medium">₹{((item.price || 0) * (item.quantity || 0)).toFixed(2)}</span>
                       </div>
-                      <span className="font-medium">₹{(item.price * item.quantity).toFixed(2)}</span>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    <p className="text-gray-500">No items found</p>
+                  )}
                 </div>
               </div>
 
@@ -247,7 +299,7 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
               <div className="border-t pt-4">
                 <div className="flex justify-between items-center text-lg font-semibold">
                   <span>Total Amount</span>
-                  <span>₹{order.total_amount.toFixed(2)}</span>
+                  <span>₹{(order.total_amount || 0).toFixed(2)}</span>
                 </div>
               </div>
             </CardContent>
@@ -267,17 +319,25 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
             <CardContent>
               <div className="space-y-2">
                 <p className="font-medium">
-                  {userRole === "retailer" ? order.wholesaler.business_name : order.retailer.business_name}
+                  {userRole === "retailer"
+                    ? order.wholesaler?.business_name || "Unknown Wholesaler"
+                    : order.retailer?.business_name || "Unknown Retailer"}
                 </p>
                 <p className="text-sm text-gray-600">
-                  {userRole === "retailer" ? order.wholesaler.address : order.retailer.address}
+                  {userRole === "retailer"
+                    ? order.wholesaler?.address || "Address not available"
+                    : order.retailer?.address || "Address not available"}
                 </p>
                 <p className="text-sm text-gray-600">
-                  {userRole === "retailer" ? order.wholesaler.city : order.retailer.city},{" "}
-                  {userRole === "retailer" ? order.wholesaler.pincode : order.retailer.pincode}
+                  {userRole === "retailer"
+                    ? `${order.wholesaler?.city || ""}, ${order.wholesaler?.pincode || ""}`
+                    : `${order.retailer?.city || ""}, ${order.retailer?.pincode || ""}`}
                 </p>
                 <p className="text-sm text-gray-600">
-                  Phone: {userRole === "retailer" ? order.wholesaler.phone : order.retailer.phone}
+                  Phone:{" "}
+                  {userRole === "retailer"
+                    ? order.wholesaler?.phone || "Not available"
+                    : order.retailer?.phone || "Not available"}
                 </p>
               </div>
             </CardContent>
@@ -303,12 +363,14 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
                       order.payment_status === "paid" ? "text-green-600" : "text-yellow-600"
                     }`}
                   >
-                    {order.payment_status.charAt(0).toUpperCase() + order.payment_status.slice(1)}
+                    {order.payment_status
+                      ? order.payment_status.charAt(0).toUpperCase() + order.payment_status.slice(1)
+                      : "Unknown"}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600">Amount:</span>
-                  <span className="text-sm font-medium">₹{order.total_amount.toFixed(2)}</span>
+                  <span className="text-sm font-medium">₹{(order.total_amount || 0).toFixed(2)}</span>
                 </div>
               </div>
             </CardContent>
