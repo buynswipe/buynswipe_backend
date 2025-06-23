@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Clean installation script for deployment
 echo "Starting deployment process..."
 
-# Remove existing node_modules and lock files
+# Clean existing dependencies
+echo "Cleaning existing dependencies..."
 rm -rf node_modules
 rm -f package-lock.json
 rm -f pnpm-lock.yaml
