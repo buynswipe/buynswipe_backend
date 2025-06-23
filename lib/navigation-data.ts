@@ -10,6 +10,8 @@ import {
   Store,
   Truck,
   Users,
+  Calculator,
+  FileText,
 } from "lucide-react"
 import type { SidebarNavItem } from "@/components/navigation/sidebar-nav"
 
@@ -82,6 +84,18 @@ export function getNavigationItems(role: string): SidebarNavItem[] {
       title: "Products",
       href: "/manage-products",
       icon: Package,
+      roles: ["retailer"],
+    },
+    {
+      title: "POS System",
+      href: "/pos",
+      icon: Calculator,
+      roles: ["retailer"],
+    },
+    {
+      title: "POS Reports",
+      href: "/pos/reports",
+      icon: FileText,
       roles: ["retailer"],
     },
     {
