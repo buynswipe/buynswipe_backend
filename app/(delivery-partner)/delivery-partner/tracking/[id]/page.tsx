@@ -1,205 +1,198 @@
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
-import { notFound, redirect } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { redirect } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { MapPin, Phone, Clock, Package, Truck } from "lucide-react"
+import { AlertCircle, Info } from "lucide-react"
+import { OrderTrackingClient } from "./client"
+import { logError } from "@/lib/debug-helpers"
+import { directOrderService } from "@/lib/direct-order-service"
 
-export const dynamic = "force-dynamic"
-export const revalidate = 0
-
-interface PageProps {
+interface DeliveryTrackingPageProps {
   params: {
     id: string
   }
 }
 
-export default async function DeliveryTrackingPage({ params }: PageProps) {
+export const dynamic = "force-dynamic"
+export const fetchCache = "force-no-store"
+
+export default async function DeliveryTrackingPage({ params }: DeliveryTrackingPageProps) {
+  const { id } = params
   const supabase = createServerComponentClient({ cookies })
 
-  // Get user session
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-
-  if (!session) {
-    redirect("/login")
-  }
+  // Custom not found UI
+  const NotFoundUI = () => (
+    <div className="flex flex-col items-center justify-center min-h-[50vh] p-4">
+      <div className="text-red-500 mb-4">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="64"
+          height="64"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="8" x2="12" y2="12" />
+          <line x1="12" y1="16" x2="12.01" y2="16" />
+        </svg>
+      </div>
+      <h1 className="text-3xl font-bold mb-2">Order Not Found</h1>
+      <p className="text-muted-foreground mb-6 text-center max-w-md">
+        We couldn't find the order you're looking for. It may have been deleted or you may have entered an incorrect
+        URL.
+      </p>
+      <div className="flex flex-col sm:flex-row gap-4">
+        <Button variant="default" asChild>
+          <a href="/delivery-partner/active">View Active Deliveries</a>
+        </Button>
+        <Button variant="outline" asChild>
+          <a href="/delivery-partner/dashboard">Go to Dashboard</a>
+        </Button>
+      </div>
+    </div>
+  )
 
   try {
-    // Get delivery partner info
-    const { data: partner, error: partnerError } = await supabase
-      .from("delivery_partners")
-      .select("id")
-      .eq("user_id", session.user.id)
-      .maybeSingle()
+    console.log(`[DeliveryTrackingPage] Starting page load for order ID: ${id}`)
 
-    if (partnerError) {
-      console.error("Error fetching delivery partner:", partnerError)
+    // Check authentication first
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+
+    if (!session) {
+      console.log(`[DeliveryTrackingPage] No session found, redirecting to login`)
+      return redirect("/login?redirect=" + encodeURIComponent(`/delivery-partner/tracking/${id}`))
     }
 
-    // Get order details
-    const { data: order, error: orderError } = await supabase
-      .from("orders")
-      .select(`
-        *,
-        retailer:retailer_id(business_name, address, city, pincode, phone),
-        wholesaler:wholesaler_id(business_name, address, city, pincode, phone)
-      `)
-      .eq("id", params.id)
+    console.log(`[DeliveryTrackingPage] User authenticated: ${session.user.id}`)
+
+    // Get the user's profile to check if they're a delivery partner
+    const { data: userProfile, error: profileError } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", session.user.id)
       .single()
 
-    if (orderError || !order) {
-      console.error("Error fetching order:", orderError)
-      notFound()
+    if (profileError) {
+      logError("Delivery tracking - profile lookup", profileError)
+      throw new Error(`Failed to fetch user profile: ${profileError.message}`)
     }
 
-    // Check if this delivery partner is assigned to this order
-    if (order.delivery_partner_id !== partner?.id && partner?.id !== "dev-partner-id") {
-      notFound()
-    }
-
-    const getStatusBadge = (status: string) => {
-      const statusConfig = {
-        dispatched: { label: "Dispatched", className: "bg-blue-100 text-blue-800" },
-        in_transit: { label: "In Transit", className: "bg-yellow-100 text-yellow-800" },
-        out_for_delivery: { label: "Out for Delivery", className: "bg-orange-100 text-orange-800" },
-        delivered: { label: "Delivered", className: "bg-green-100 text-green-800" },
-        failed: { label: "Failed", className: "bg-red-100 text-red-800" },
-      }
-
-      const config = statusConfig[status as keyof typeof statusConfig] || {
-        label: status,
-        className: "bg-gray-100 text-gray-800",
-      }
-
-      return <Badge className={config.className}>{config.label}</Badge>
-    }
-
-    const formatDate = (dateString: string) => {
-      return new Date(dateString).toLocaleDateString("en-IN", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    }
-
-    return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold mb-2">Delivery Tracking</h1>
-          <p className="text-muted-foreground">Order #{order.id.substring(0, 8)}</p>
+    if (!userProfile || userProfile.role !== "delivery_partner") {
+      console.error(`[DeliveryTrackingPage] User ${session.user.id} is not a delivery partner`)
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[50vh] p-4">
+          <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+          <h1 className="text-2xl font-bold mb-2">Access Denied</h1>
+          <p className="text-muted-foreground mb-6">You don't have permission to view this order.</p>
+          <Button variant="default" asChild>
+            <a href="/delivery-partner/dashboard">Go to Dashboard</a>
+          </Button>
         </div>
+      )
+    }
 
-        {/* Order Status */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Truck className="h-5 w-5" />
-              Delivery Status
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              {getStatusBadge(order.status)}
-              <p className="text-lg font-semibold">₹{order.total_amount.toFixed(2)}</p>
-            </div>
-            <p className="text-sm text-gray-600 mt-2">
-              <Clock className="h-4 w-4 inline mr-1" />
-              Created: {formatDate(order.created_at)}
-            </p>
-          </CardContent>
-        </Card>
+    console.log(`[DeliveryTrackingPage] User is a delivery partner, proceeding with order lookup`)
 
-        {/* Delivery Address */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <MapPin className="h-5 w-5" />
-              Delivery Address
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <p className="font-medium">{order.retailer?.business_name}</p>
-              <p className="text-sm text-gray-600">{order.retailer?.address}</p>
-              <p className="text-sm text-gray-600">
-                {order.retailer?.city}, {order.retailer?.pincode}
+    // Use the direct order service to find the order with admin privileges
+    const { order, source, error: lookupError, _debug } = await directOrderService.findOrderDirect(id)
+
+    // If we couldn't find the order
+    if (!order) {
+      console.error(
+        `[DeliveryTrackingPage] Order not found after exhausting all lookup methods: ${lookupError || "No error details"}`,
+      )
+      return <NotFoundUI />
+    }
+
+    console.log(`[DeliveryTrackingPage] Successfully found order: ${order.id} via ${source} lookup`)
+
+    // Skip permission check in development mode
+    const isDebugMode = _debug === true
+
+    // Get delivery status updates
+    const { data: statusUpdates, error: statusError } = await supabase
+      .from("delivery_status_updates")
+      .select("*")
+      .eq("order_id", order.id)
+      .order("created_at", { ascending: true })
+
+    if (statusError) {
+      logError("Delivery tracking - status updates", statusError)
+    }
+
+    // Get delivery proof
+    const { data: deliveryProof, error: proofError } = await supabase
+      .from("delivery_proofs")
+      .select("*")
+      .eq("order_id", order.id)
+      .maybeSingle()
+
+    if (proofError) {
+      logError("Delivery tracking - delivery proof", proofError)
+    }
+
+    const isDelivered = order.status === "delivered"
+    const isCod = order.payment_method === "cod"
+
+    console.log(`[DeliveryTrackingPage] Successfully loaded all data for order ${order.id}`)
+
+    // Show debug banner if using mock data
+    const DebugBanner = () => {
+      if (!isDebugMode) return null
+
+      return (
+        <div className="bg-yellow-100 border-l-4 border-yellow-500 p-4 mb-4">
+          <div className="flex items-start">
+            <Info className="h-5 w-5 text-yellow-500 mr-2 mt-0.5" />
+            <div>
+              <p className="font-medium text-yellow-700">Debug Mode Active</p>
+              <p className="text-sm text-yellow-600">
+                This is a mock order created for testing purposes. Some features may not work as expected.
               </p>
-              {order.retailer?.phone && (
-                <div className="flex items-center gap-2 mt-3">
-                  <Phone className="h-4 w-4" />
-                  <a href={`tel:${order.retailer.phone}`} className="text-blue-600">
-                    {order.retailer.phone}
-                  </a>
-                </div>
-              )}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
+      )
+    }
 
-        {/* Pickup Address */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Package className="h-5 w-5" />
-              Pickup Address
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <p className="font-medium">{order.wholesaler?.business_name}</p>
-              <p className="text-sm text-gray-600">{order.wholesaler?.address}</p>
-              <p className="text-sm text-gray-600">
-                {order.wholesaler?.city}, {order.wholesaler?.pincode}
-              </p>
-              {order.wholesaler?.phone && (
-                <div className="flex items-center gap-2 mt-3">
-                  <Phone className="h-4 w-4" />
-                  <a href={`tel:${order.wholesaler.phone}`} className="text-blue-600">
-                    {order.wholesaler.phone}
-                  </a>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Payment Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Payment Information</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span>Payment Method:</span>
-                <Badge variant="outline">{order.payment_method === "cod" ? "Cash on Delivery" : "UPI Payment"}</Badge>
-              </div>
-              <div className="flex justify-between">
-                <span>Total Amount:</span>
-                <span className="font-semibold">₹{order.total_amount.toFixed(2)}</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Action Buttons */}
-        <div className="flex gap-4">
-          {order.status === "dispatched" && <Button className="flex-1">Start Delivery</Button>}
-          {order.status === "in_transit" && <Button className="flex-1">Mark as Out for Delivery</Button>}
-          {order.status === "out_for_delivery" && <Button className="flex-1">Mark as Delivered</Button>}
-          <Button variant="outline" className="flex-1">
-            Call Customer
+    // Pass all data to the client component
+    return (
+      <>
+        {isDebugMode && <DebugBanner />}
+        <OrderTrackingClient
+          order={order}
+          statusUpdates={statusUpdates || []}
+          deliveryProof={deliveryProof}
+          isDelivered={isDelivered}
+          isCod={isCod}
+        />
+      </>
+    )
+  } catch (error) {
+    logError("Delivery tracking - unexpected error", error)
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] p-4">
+        <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+        <h1 className="text-2xl font-bold mb-2">Something went wrong</h1>
+        <p className="text-muted-foreground mb-6">
+          We encountered an error while loading the order details.
+          {error instanceof Error ? ` (${error.message})` : ""}
+        </p>
+        <div className="flex flex-col sm:flex-row gap-4">
+          <Button variant="default" asChild>
+            <a href={`/delivery-partner/tracking/${id}`}>Try again</a>
+          </Button>
+          <Button variant="outline" asChild>
+            <a href="/delivery-partner/active">Go to Active Deliveries</a>
           </Button>
         </div>
       </div>
     )
-  } catch (error) {
-    console.error("Error in DeliveryTrackingPage:", error)
-    notFound()
   }
 }

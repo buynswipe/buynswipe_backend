@@ -1,5 +1,3 @@
-"use client"
-
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
@@ -159,7 +157,9 @@ export default async function DeliveryPartnerDashboard() {
           <CardContent className="p-8 text-center">
             <h3 className="text-lg font-semibold text-red-600 mb-2">Error Loading Dashboard</h3>
             <p className="text-gray-600 mb-4">There was an error loading your dashboard. Please try again.</p>
-            <Button onClick={() => window.location.reload()}>Retry</Button>
+            <Button>
+              <Link href="/delivery-partner/dashboard">Retry</Link>
+            </Button>
           </CardContent>
         </Card>
       </div>
