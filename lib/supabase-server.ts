@@ -3,28 +3,20 @@ import { cookies } from "next/headers"
 import { createClient as createSupabaseClient } from "@supabase/supabase-js"
 import { cache } from "react"
 
-// Server-side client for server components only
+// Use React cache to ensure we only create one client per request
 export const createServerSupabaseClient = cache(() => {
-  const cookieStore = cookies()
-  return createServerComponentClient({ cookies: () => cookieStore })
+  return createServerComponentClient({ cookies })
 })
 
-// Service role client for server-side operations
-export const createServiceClient = () => {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+// Add the createClient export
+export const createClient = () => {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 
-  if (!supabaseUrl || !supabaseServiceKey) {
-    throw new Error("Missing Supabase environment variables")
-  }
-
-  return createSupabaseClient(supabaseUrl, supabaseServiceKey, {
+  return createSupabaseClient(supabaseUrl, supabaseKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
     },
   })
 }
-
-// Legacy export for backward compatibility
-export const createClient = createServiceClient
