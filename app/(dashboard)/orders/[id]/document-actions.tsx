@@ -1,25 +1,24 @@
 "use client"
 
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { PrintDocument } from "@/components/documents/print-document"
-import { FileText, FileCheck } from "lucide-react"
-import type { Order } from "@/types/database.types"
+import { FileText, Download } from "lucide-react"
 
 interface DocumentActionsProps {
-  order: Order
+  order: {
+    id: string
+    status: string
+  }
   userRole: string
 }
 
 export function DocumentActions({ order, userRole }: DocumentActionsProps) {
-  // Determine which documents are available based on order status and user role
-  const canViewInvoice = order.payment_status === "paid"
-  const canViewDispatchReceipt =
-    (order.status === "dispatched" || order.status === "delivered") &&
-    (userRole === "wholesaler" || userRole === "retailer")
+  const handleDownloadInvoice = () => {
+    window.open(`/api/documents/invoice/${order.id}`, "_blank")
+  }
 
-  // If no documents are available, don't render the card
-  if (!canViewInvoice && !canViewDispatchReceipt) {
-    return null
+  const handleDownloadDispatch = () => {
+    window.open(`/api/documents/dispatch/${order.id}`, "_blank")
   }
 
   return (
@@ -27,25 +26,17 @@ export function DocumentActions({ order, userRole }: DocumentActionsProps) {
       <CardHeader>
         <CardTitle className="text-lg">Documents</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {canViewInvoice && (
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <FileText className="h-4 w-4 text-blue-500" />
-              <span>Invoice</span>
-            </div>
-            <PrintDocument documentId={order.id} documentType="invoice" buttonText="Print Invoice" />
-          </div>
-        )}
+      <CardContent className="space-y-2">
+        <Button variant="outline" className="w-full" onClick={handleDownloadInvoice}>
+          <FileText className="mr-2 h-4 w-4" />
+          Download Invoice
+        </Button>
 
-        {canViewDispatchReceipt && (
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <FileCheck className="h-4 w-4 text-green-500" />
-              <span>Dispatch Receipt</span>
-            </div>
-            <PrintDocument documentId={order.id} documentType="dispatch" buttonText="Print Receipt" />
-          </div>
+        {(order.status === "dispatched" || order.status === "delivered") && (
+          <Button variant="outline" className="w-full" onClick={handleDownloadDispatch}>
+            <Download className="mr-2 h-4 w-4" />
+            Download Dispatch Receipt
+          </Button>
         )}
       </CardContent>
     </Card>

@@ -1,75 +1,62 @@
 // Define public routes that don't require authentication
-export const publicRoutes = [
+const publicRoutes = [
   "/",
   "/login",
   "/register",
-  "/register-driver",
   "/register/success",
+  "/pending-approval",
+  "/about",
+  "/contact",
   "/features",
   "/benefits",
   "/testimonials",
-  "/contact",
-  "/about",
-  "/documentation",
-  "/tutorials",
-  "/blog",
-  "/case-studies",
-  "/support",
-  "/careers",
-  "/press",
-  "/privacy-policy",
-  "/terms-of-service",
-  "/payment-error",
-  "/api/auth/status",
-  "/company/about",
-  "/company/terms-of-service",
-  "/company/privacy-policy",
-  "/company/careers",
-  "/company/press",
-  "/resources/documentation",
-  "/resources/tutorials",
-  "/resources/blog",
-  "/resources/case-studies",
-  "/resources/support",
+  "/products",
   "/products/inventory-management",
   "/products/order-processing",
   "/products/delivery-tracking",
   "/products/payment-solutions",
   "/products/analytics-reports",
-  "/company",
-  "/products",
   "/resources",
-]
-
-// Routes that start with these prefixes are also public
-export const publicPrefixes = [
-  "/features/",
-  "/api/auth/",
-  "/api/contact",
-  "/_next/",
+  "/resources/documentation",
+  "/resources/tutorials",
+  "/resources/blog",
+  "/resources/case-studies",
+  "/resources/support",
+  "/company",
+  "/company/about",
+  "/company/careers",
+  "/company/press",
+  "/company/terms-of-service",
+  "/company/privacy-policy",
+  "/not-found",
+  "/error",
+  "/payment-error",
+  "/api/auth",
   "/favicon.ico",
-  "/images/",
-  "/fonts/",
-  "/company/",
-  "/resources/",
-  "/products/",
+  "/_next",
+  "/public",
 ]
 
-/**
- * Check if a path is public (doesn't require authentication)
- */
 export function isPublicRoute(path: string): boolean {
-  // Check exact matches
+  // Handle exact matches
   if (publicRoutes.includes(path)) {
     return true
   }
 
-  // Check prefixes
-  for (const prefix of publicPrefixes) {
-    if (path.startsWith(prefix)) {
+  // Handle dynamic routes and nested paths
+  return publicRoutes.some((route) => {
+    // Handle wildcard routes
+    if (route.endsWith("*")) {
+      return path.startsWith(route.slice(0, -1))
+    }
+
+    // Handle nested routes
+    if (path.startsWith(route + "/")) {
       return true
     }
-  }
 
-  return false
+    return false
+  })
 }
+
+export { publicRoutes }

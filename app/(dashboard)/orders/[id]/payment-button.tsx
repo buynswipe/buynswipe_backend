@@ -11,14 +11,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Loader2, DollarSign, AlertTriangle, Database, CheckCircle, RefreshCw } from "lucide-react"
+import { Loader2, AlertTriangle, Database, CheckCircle, RefreshCw, CreditCard } from "lucide-react"
 import type { Order, UserProfile } from "@/types/database.types"
 
 interface PaymentButtonProps {
   order: Order & {
     retailer: UserProfile
   }
-  onPaymentComplete: () => void
+  onPaymentComplete?: () => void
 }
 
 export function PaymentButton({ order, onPaymentComplete }: PaymentButtonProps) {
@@ -88,7 +88,9 @@ export function PaymentButton({ order, onPaymentComplete }: PaymentButtonProps) 
       // Close dialog and refresh data after success
       setTimeout(() => {
         setShowDialog(false)
-        onPaymentComplete()
+        if (onPaymentComplete) {
+          onPaymentComplete()
+        }
       }, 2000)
     } catch (error: any) {
       console.error("Error processing payment:", error)
@@ -164,7 +166,7 @@ export function PaymentButton({ order, onPaymentComplete }: PaymentButtonProps) 
   return (
     <>
       <Button className="w-full" onClick={() => setShowDialog(true)} variant="default">
-        <DollarSign className="mr-2 h-4 w-4" />
+        <CreditCard className="mr-2 h-4 w-4" />
         Mark Payment as Received
       </Button>
 

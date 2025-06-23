@@ -1,14 +1,5 @@
 {
-  "buildCommand": "pnpm install --no-frozen-lockfile && pnpm run build",
-  "installCommand": "pnpm install --no-frozen-lockfile",
   "framework": "nextjs",
-  "regions": ["iad1"],
-  "functions": {
-    "app/api/**/*.ts": {
-      "maxDuration": 30
-    }
-  },
-  "env": {
-    "PNPM_FLAGS": "--no-frozen-lockfile"
-  }
+  "buildCommand": "npm run build",
+  "installCommand": "npm ci --legacy-peer-deps || npm install --legacy-peer-deps"
 }
