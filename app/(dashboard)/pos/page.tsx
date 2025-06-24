@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { MobilePOSCart } from "@/components/pos/mobile-pos-cart"
+import { AdvancedBarcodeScanner } from "@/components/pos/advanced-barcode-scanner"
 import {
   Calculator,
   ShoppingCart,
@@ -25,9 +26,11 @@ import {
   BarChart3,
   Package,
   AlertCircle,
+  ScanLine,
 } from "lucide-react"
 import { toast } from "sonner"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { QuickBarcodeLookup } from "@/components/pos/quick-barcode-lookup"
 
 interface CartItem {
   id: string
@@ -74,6 +77,7 @@ export default function POSPage() {
   const [products, setProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false)
 
   // Dialog states
   const [showPayment, setShowPayment] = useState(false)
@@ -252,6 +256,9 @@ export default function POSPage() {
   // Enhanced Product Search Component
   const ProductSearch = () => (
     <div className="space-y-4">
+      {/* Quick Barcode Lookup */}
+      <QuickBarcodeLookup onProductFound={addToCart} onOpenScanner={() => setShowBarcodeScanner(true)} />
+
       <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
         <Input
@@ -469,6 +476,9 @@ export default function POSPage() {
             <h1 className="text-lg font-bold">POS System</h1>
           </div>
           <div className="flex items-center space-x-2">
+            <Button variant="outline" size="sm" onClick={() => setShowBarcodeScanner(true)}>
+              <ScanLine className="h-4 w-4" />
+            </Button>
             <Button variant="outline" size="sm" onClick={() => setShowSettings(true)}>
               <Settings className="h-4 w-4" />
             </Button>
@@ -575,6 +585,10 @@ export default function POSPage() {
             <h1 className="text-2xl font-bold">POS System</h1>
           </div>
           <div className="flex items-center space-x-2">
+            <Button variant="outline" size="sm" onClick={() => setShowBarcodeScanner(true)}>
+              <ScanLine className="h-4 w-4 mr-2" />
+              Scan Barcode
+            </Button>
             <Button variant="outline" size="sm" onClick={() => setShowSettings(true)}>
               <Settings className="h-4 w-4 mr-2" />
               Settings
@@ -751,6 +765,15 @@ export default function POSPage() {
 
       {/* Payment Dialog */}
       {showPayment && <PaymentDialog />}
+      {/* Barcode Scanner */}
+      <AdvancedBarcodeScanner
+        open={showBarcodeScanner}
+        onOpenChange={setShowBarcodeScanner}
+        onProductFound={addToCart}
+        onBarcodeScanned={(barcode) => {
+          console.log("Barcode scanned:", barcode)
+        }}
+      />
     </div>
   )
 }
