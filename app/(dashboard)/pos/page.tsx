@@ -5,19 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { EnhancedBarcodeScanner } from "@/components/pos/enhanced-barcode-scanner"
-import { EnhancedProductSearch } from "@/components/pos/enhanced-product-search"
-import { EnhancedPaymentDialog } from "@/components/pos/enhanced-payment-dialog"
-import { EnhancedReceiptPreview } from "@/components/pos/enhanced-receipt-preview"
-import { POSSettings } from "@/components/pos/pos-settings"
-import { MobilePOSCart } from "@/components/pos/mobile-pos-cart"
-import { CategoryManager } from "@/components/pos/category-manager"
-import { DiscountManager } from "@/components/pos/discount-manager"
-import { CustomerManager } from "@/components/pos/customer-manager"
-import { POSAnalytics } from "@/components/pos/pos-analytics"
-import { QuickActions } from "@/components/pos/quick-actions"
+import { Input } from "@/components/ui/input"
 import {
   Calculator,
   ShoppingCart,
@@ -26,13 +14,9 @@ import {
   Minus,
   Settings,
   Printer,
-  Scan,
   CreditCard,
-  Users,
-  Tag,
-  Percent,
-  BarChart3,
-  Package,
+  Search,
+  Banknote,
 } from "lucide-react"
 import { toast } from "sonner"
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -73,13 +57,16 @@ interface Discount {
   maxDiscount?: number
 }
 
-export default function EnhancedPOSPage() {
+export default function POSPage() {
   const [cart, setCart] = useState<CartItem[]>([])
   const [session, setSession] = useState<POSSession | null>(null)
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [appliedDiscount, setAppliedDiscount] = useState<Discount | null>(null)
   const [categories, setCategories] = useState<any[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [products, setProducts] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
 
   // Dialog states
   const [showPayment, setShowPayment] = useState(false)
@@ -144,6 +131,7 @@ export default function EnhancedPOSPage() {
         toast.success("POS session started")
       }
     } catch (error) {
+      console.error("Failed to start POS session:", error)
       toast.error("Failed to start POS session")
     }
   }
@@ -157,6 +145,27 @@ export default function EnhancedPOSPage() {
       }
     } catch (error) {
       console.error("Failed to load categories:", error)
+    }
+  }
+
+  const searchProducts = async (term: string) => {
+    if (!term.trim()) {
+      setProducts([])
+      return
+    }
+
+    setLoading(true)
+    try {
+      const response = await fetch(`/api/products?search=${encodeURIComponent(term)}`)
+      if (response.ok) {
+        const data = await response.json()
+        setProducts(data.products || [])
+      }
+    } catch (error) {
+      console.error("Failed to search products:", error)
+      toast.error("Failed to search products")
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -200,29 +209,6 @@ export default function EnhancedPOSPage() {
     setAppliedDiscount(null)
   }, [])
 
-  const applyItemDiscount = useCallback(
-    (itemId: string, discount: number, type: "percentage" | "fixed") => {
-      setCart(
-        cart.map((item) => {
-          if (item.id === itemId) {
-            const itemTotal = item.price * item.quantity
-            let discountAmount = 0
-
-            if (type === "percentage") {
-              discountAmount = (itemTotal * discount) / 100
-            } else {
-              discountAmount = Math.min(discount, itemTotal)
-            }
-
-            return { ...item, discount: discountAmount, discountType: type }
-          }
-          return item
-        }),
-      )
-    },
-    [cart],
-  )
-
   const handlePaymentComplete = async (paymentData: any) => {
     try {
       const transactionData = {
@@ -253,6 +239,7 @@ export default function EnhancedPOSPage() {
         toast.success("Transaction completed successfully")
       }
     } catch (error) {
+      console.error("Transaction failed:", error)
       toast.error("Transaction failed")
     }
   }
@@ -262,6 +249,93 @@ export default function EnhancedPOSPage() {
     toast.success("Receipt sent to printer")
   }
 
+  // Simple Product Search Component
+  const ProductSearch = () => (
+    <div className="space-y-4">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Input
+          placeholder="Search products..."
+          value={searchTerm}
+          onChange={(e) => {
+            setSearchTerm(e.target.value)
+            searchProducts(e.target.value)
+          }}
+          className={`pl-10 ${isMobile ? "text-base h-12" : ""}`}
+        />
+      </div>
+
+      {loading && (
+        <div className="text-center py-4">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
+        </div>
+      )}
+
+      {products.length > 0 && (
+        <Card>
+          <CardContent className="p-2">
+            <div className="space-y-1 max-h-64 overflow-y-auto">
+              {products.map((product) => (
+                <div
+                  key={product.id}
+                  className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg cursor-pointer"
+                  onClick={() => addToCart(product)}
+                >
+                  <div className="flex-1">
+                    <h4 className="font-medium">{product.name}</h4>
+                    <p className="text-sm text-gray-500">₹{product.price?.toFixed(2) || "0.00"}</p>
+                  </div>
+                  <Button size="sm" variant="ghost">
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  )
+
+  // Simple Payment Dialog
+  const PaymentDialog = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <Card className="w-full max-w-md mx-4">
+        <CardHeader>
+          <CardTitle>Payment</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="text-center">
+            <p className="text-2xl font-bold">₹{total.toFixed(2)}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              onClick={() => {
+                handlePaymentComplete({ method: "cash", amount: total })
+              }}
+              className="h-16 flex flex-col"
+            >
+              <Banknote className="h-6 w-6 mb-1" />
+              Cash
+            </Button>
+            <Button
+              onClick={() => {
+                handlePaymentComplete({ method: "card", amount: total })
+              }}
+              className="h-16 flex flex-col"
+            >
+              <CreditCard className="h-6 w-6 mb-1" />
+              Card
+            </Button>
+          </div>
+          <Button variant="outline" onClick={() => setShowPayment(false)} className="w-full">
+            Cancel
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  )
+
   // Mobile Layout
   if (isMobile) {
     return (
@@ -270,7 +344,7 @@ export default function EnhancedPOSPage() {
         <div className="bg-white border-b px-4 py-3 flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <Calculator className="h-5 w-5" />
-            <h1 className="text-lg font-bold">Enhanced POS</h1>
+            <h1 className="text-lg font-bold">POS System</h1>
           </div>
           <div className="flex items-center space-x-2">
             <Button variant="outline" size="sm" onClick={() => setShowSettings(true)}>
@@ -284,119 +358,18 @@ export default function EnhancedPOSPage() {
           </div>
         </div>
 
-        {/* Mobile Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-          <TabsList className="grid w-full grid-cols-4 bg-white border-b">
-            <TabsTrigger value="products" className="text-xs">
-              <Package className="h-4 w-4 mr-1" />
-              Products
-            </TabsTrigger>
-            <TabsTrigger value="customers" className="text-xs">
-              <Users className="h-4 w-4 mr-1" />
-              Customers
-            </TabsTrigger>
-            <TabsTrigger value="discounts" className="text-xs">
-              <Percent className="h-4 w-4 mr-1" />
-              Discounts
-            </TabsTrigger>
-            <TabsTrigger value="analytics" className="text-xs">
-              <BarChart3 className="h-4 w-4 mr-1" />
-              Analytics
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="products" className="flex-1 p-4">
-            <EnhancedProductSearch
-              onProductSelect={addToCart}
-              categories={categories}
-              selectedCategory={selectedCategory}
-              onCategoryChange={setSelectedCategory}
-            />
-          </TabsContent>
-
-          <TabsContent value="customers" className="flex-1 p-4">
-            <CustomerManager selectedCustomer={selectedCustomer} onCustomerSelect={setSelectedCustomer} />
-          </TabsContent>
-
-          <TabsContent value="discounts" className="flex-1 p-4">
-            <DiscountManager
-              appliedDiscount={appliedDiscount}
-              onDiscountApply={setAppliedDiscount}
-              cartTotal={subtotal}
-            />
-          </TabsContent>
-
-          <TabsContent value="analytics" className="flex-1 p-4">
-            <POSAnalytics />
-          </TabsContent>
-        </Tabs>
-
-        {/* Mobile Action Bar */}
-        <div className="bg-white border-t px-4 py-2">
-          <div className="grid grid-cols-3 gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowScanner(true)}
-              className="flex items-center justify-center"
-            >
-              <Scan className="h-4 w-4 mr-1" />
-              Scan
-            </Button>
-            <Sheet open={showMobileCart} onOpenChange={setShowMobileCart}>
-              <SheetTrigger asChild>
-                <Button variant="outline" size="sm" className="flex items-center justify-center relative">
-                  <ShoppingCart className="h-4 w-4 mr-1" />
-                  Cart
-                  {cart.length > 0 && (
-                    <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
-                      {cart.length}
-                    </Badge>
-                  )}
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="bottom" className="h-[80vh]">
-                <MobilePOSCart
-                  cart={cart}
-                  onUpdateQuantity={updateQuantity}
-                  onRemoveItem={removeFromCart}
-                  onClearCart={clearCart}
-                  onApplyItemDiscount={applyItemDiscount}
-                  subtotal={subtotal}
-                  tax={tax}
-                  total={total}
-                  globalDiscount={globalDiscountAmount}
-                  selectedCustomer={selectedCustomer}
-                  appliedDiscount={appliedDiscount}
-                  onCheckout={() => {
-                    setShowMobileCart(false)
-                    setShowPayment(true)
-                  }}
-                />
-              </SheetContent>
-            </Sheet>
-            <Button
-              size="sm"
-              disabled={cart.length === 0}
-              onClick={() => setShowPayment(true)}
-              className="flex items-center justify-center"
-            >
-              <CreditCard className="h-4 w-4 mr-1" />
-              Pay
-            </Button>
-          </div>
+        {/* Mobile Content */}
+        <div className="flex-1 p-4">
+          <ProductSearch />
         </div>
 
-        {/* Mobile Cart Summary (Fixed Bottom) */}
+        {/* Mobile Cart Summary */}
         {cart.length > 0 && (
           <div className="bg-white border-t px-4 py-3">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">{cart.length} items</p>
                 <p className="font-bold">₹{total.toFixed(2)}</p>
-                {globalDiscountAmount > 0 && (
-                  <p className="text-sm text-green-600">-₹{globalDiscountAmount.toFixed(2)} discount</p>
-                )}
               </div>
               <Button onClick={() => setShowPayment(true)} className="px-6">
                 Checkout
@@ -405,48 +378,24 @@ export default function EnhancedPOSPage() {
           </div>
         )}
 
-        {/* Mobile Dialogs */}
-        <EnhancedBarcodeScanner open={showScanner} onOpenChange={setShowScanner} onBarcodeScanned={addToCart} />
-
-        <EnhancedPaymentDialog
-          open={showPayment}
-          onOpenChange={setShowPayment}
-          total={total}
-          customer={selectedCustomer}
-          discount={appliedDiscount}
-          onPaymentComplete={handlePaymentComplete}
-        />
-
-        <EnhancedReceiptPreview
-          open={showReceipt}
-          onOpenChange={setShowReceipt}
-          transaction={lastTransaction}
-          onPrint={handlePrintReceipt}
-        />
-
-        <POSSettings open={showSettings} onOpenChange={setShowSettings} />
+        {/* Payment Dialog */}
+        {showPayment && <PaymentDialog />}
       </div>
     )
   }
 
-  // Desktop Layout (Enhanced)
+  // Desktop Layout
   return (
     <div className="flex h-screen bg-gray-50">
-      {/* Left Panel - Enhanced Product Search & Management */}
-      <div className="flex-1 flex flex-col p-4 space-y-4 min-w-0">
-        {/* Enhanced Header */}
+      {/* Left Panel */}
+      <div className="flex-1 flex flex-col p-4 space-y-4">
+        {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <Calculator className="h-6 w-6" />
-            <h1 className="text-2xl font-bold">Enhanced POS System</h1>
+            <h1 className="text-2xl font-bold">POS System</h1>
           </div>
           <div className="flex items-center space-x-2">
-            <QuickActions
-              onOpenCategories={() => setShowCategories(true)}
-              onOpenDiscounts={() => setShowDiscounts(true)}
-              onOpenCustomers={() => setShowCustomers(true)}
-              onOpenAnalytics={() => setShowAnalytics(true)}
-            />
             <Button variant="outline" size="sm" onClick={() => setShowSettings(true)}>
               <Settings className="h-4 w-4 mr-2" />
               Settings
@@ -455,88 +404,18 @@ export default function EnhancedPOSPage() {
           </div>
         </div>
 
-        {/* Customer & Discount Selection */}
-        <div className="grid grid-cols-2 gap-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center">
-                <Users className="h-4 w-4 mr-2" />
-                Customer
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {selectedCustomer ? (
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">{selectedCustomer.name}</p>
-                    <p className="text-sm text-gray-500">{selectedCustomer.loyaltyPoints} points</p>
-                  </div>
-                  <Button variant="ghost" size="sm" onClick={() => setSelectedCustomer(null)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ) : (
-                <Button variant="outline" size="sm" onClick={() => setShowCustomers(true)} className="w-full">
-                  Select Customer
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center">
-                <Percent className="h-4 w-4 mr-2" />
-                Discount
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {appliedDiscount ? (
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">{appliedDiscount.name}</p>
-                    <p className="text-sm text-green-600">-₹{globalDiscountAmount.toFixed(2)}</p>
-                  </div>
-                  <Button variant="ghost" size="sm" onClick={() => setAppliedDiscount(null)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ) : (
-                <Button variant="outline" size="sm" onClick={() => setShowDiscounts(true)} className="w-full">
-                  Apply Discount
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Enhanced Product Search */}
+        {/* Product Search */}
         <Card>
           <CardHeader>
             <CardTitle>Product Search</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <EnhancedProductSearch
-              onProductSelect={addToCart}
-              categories={categories}
-              selectedCategory={selectedCategory}
-              onCategoryChange={setSelectedCategory}
-            />
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setShowScanner(true)} className="flex-1">
-                <Scan className="h-4 w-4 mr-2" />
-                Barcode Scanner
-              </Button>
-              <Button variant="outline" onClick={() => setShowCategories(true)}>
-                <Tag className="h-4 w-4 mr-2" />
-                Categories
-              </Button>
-            </div>
+          <CardContent>
+            <ProductSearch />
           </CardContent>
         </Card>
 
-        {/* Enhanced Shopping Cart */}
-        <Card className="flex-1 min-h-0">
+        {/* Shopping Cart */}
+        <Card className="flex-1">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="flex items-center">
               <ShoppingCart className="h-5 w-5 mr-2" />
@@ -549,27 +428,18 @@ export default function EnhancedPOSPage() {
               </Button>
             )}
           </CardHeader>
-          <CardContent className="flex-1 min-h-0">
+          <CardContent className="flex-1">
             <div className="space-y-2 h-full overflow-y-auto">
               {cart.length === 0 ? (
                 <p className="text-gray-500 text-center py-8">Cart is empty</p>
               ) : (
                 cart.map((item) => (
                   <div key={item.id} className="flex items-center justify-between p-3 bg-white rounded-lg border">
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-medium truncate">{item.name}</h4>
+                    <div className="flex-1">
+                      <h4 className="font-medium">{item.name}</h4>
                       <p className="text-sm text-gray-500">₹{item.price.toFixed(2)} each</p>
-                      {item.discount && (
-                        <p className="text-sm text-green-600">
-                          -
-                          {item.discountType === "percentage"
-                            ? `${((item.discount / (item.price * item.quantity)) * 100).toFixed(1)}%`
-                            : `₹${item.discount.toFixed(2)}`}{" "}
-                          discount
-                        </p>
-                      )}
                     </div>
-                    <div className="flex items-center space-x-2 ml-4">
+                    <div className="flex items-center space-x-2">
                       <Button variant="outline" size="sm" onClick={() => updateQuantity(item.id, item.quantity - 1)}>
                         <Minus className="h-3 w-3" />
                       </Button>
@@ -581,8 +451,8 @@ export default function EnhancedPOSPage() {
                         <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>
-                    <div className="text-right ml-4 min-w-0">
-                      <p className="font-medium">₹{(item.price * item.quantity - (item.discount || 0)).toFixed(2)}</p>
+                    <div className="text-right ml-4">
+                      <p className="font-medium">₹{(item.price * item.quantity).toFixed(2)}</p>
                     </div>
                   </div>
                 ))
@@ -592,11 +462,11 @@ export default function EnhancedPOSPage() {
         </Card>
       </div>
 
-      {/* Right Panel - Enhanced Checkout */}
+      {/* Right Panel - Checkout */}
       <div className="w-96 p-4">
         <Card className="h-full">
           <CardHeader>
-            <CardTitle>Enhanced Checkout</CardTitle>
+            <CardTitle>Checkout</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -604,12 +474,6 @@ export default function EnhancedPOSPage() {
                 <span>Subtotal:</span>
                 <span>₹{subtotal.toFixed(2)}</span>
               </div>
-              {globalDiscountAmount > 0 && (
-                <div className="flex justify-between text-green-600">
-                  <span>Discount:</span>
-                  <span>-₹{globalDiscountAmount.toFixed(2)}</span>
-                </div>
-              )}
               <div className="flex justify-between">
                 <span>Tax (18%):</span>
                 <span>₹{tax.toFixed(2)}</span>
@@ -620,13 +484,6 @@ export default function EnhancedPOSPage() {
                 <span>₹{total.toFixed(2)}</span>
               </div>
             </div>
-
-            {selectedCustomer && (
-              <div className="p-3 bg-blue-50 rounded-lg">
-                <p className="text-sm font-medium">Customer: {selectedCustomer.name}</p>
-                <p className="text-sm text-gray-600">Points to earn: {Math.floor(total / 10)}</p>
-              </div>
-            )}
 
             <Button className="w-full" size="lg" disabled={cart.length === 0} onClick={() => setShowPayment(true)}>
               Process Payment
@@ -642,45 +499,8 @@ export default function EnhancedPOSPage() {
         </Card>
       </div>
 
-      {/* Enhanced Dialogs */}
-      <EnhancedBarcodeScanner open={showScanner} onOpenChange={setShowScanner} onBarcodeScanned={addToCart} />
-
-      <EnhancedPaymentDialog
-        open={showPayment}
-        onOpenChange={setShowPayment}
-        total={total}
-        customer={selectedCustomer}
-        discount={appliedDiscount}
-        onPaymentComplete={handlePaymentComplete}
-      />
-
-      <EnhancedReceiptPreview
-        open={showReceipt}
-        onOpenChange={setShowReceipt}
-        transaction={lastTransaction}
-        onPrint={handlePrintReceipt}
-      />
-
-      <CategoryManager open={showCategories} onOpenChange={setShowCategories} onCategoriesUpdate={loadCategories} />
-
-      <DiscountManager
-        open={showDiscounts}
-        onOpenChange={setShowDiscounts}
-        appliedDiscount={appliedDiscount}
-        onDiscountApply={setAppliedDiscount}
-        cartTotal={subtotal}
-      />
-
-      <CustomerManager
-        open={showCustomers}
-        onOpenChange={setShowCustomers}
-        selectedCustomer={selectedCustomer}
-        onCustomerSelect={setSelectedCustomer}
-      />
-
-      <POSAnalytics open={showAnalytics} onOpenChange={setShowAnalytics} />
-
-      <POSSettings open={showSettings} onOpenChange={setShowSettings} />
+      {/* Payment Dialog */}
+      {showPayment && <PaymentDialog />}
     </div>
   )
 }
