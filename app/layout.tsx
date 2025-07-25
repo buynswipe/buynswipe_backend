@@ -7,6 +7,7 @@ import { SiteFooter } from "@/components/site-footer"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { AuthProvider } from "@/contexts/auth-context"
 import { NotificationProvider } from "@/contexts/notification-provider"
+import { NavigationGuard } from "@/components/navigation/navigation-guard"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -14,7 +15,7 @@ export const metadata: Metadata = {
   title: "Retail Bandhu - Connecting Retailers and Wholesalers",
   description:
     "Streamline your retail business with our comprehensive platform for inventory management, order processing, and delivery tracking.",
-    generator: 'v0.dev'
+  generator: "v0.dev",
 }
 
 export default async function RootLayout({
@@ -41,6 +42,7 @@ export default async function RootLayout({
       <body className={inter.className}>
         <AuthProvider>
           <NotificationProvider>
+            <NavigationGuard />
             <div className="relative flex min-h-screen flex-col">
               <SiteHeader />
               <main className="flex-1">{children}</main>

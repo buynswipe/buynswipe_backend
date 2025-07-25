@@ -3,13 +3,32 @@ import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Package, ShoppingCart, Truck, CreditCard, BarChart2, ArrowRight } from "lucide-react"
+import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { redirect } from "next/navigation"
 
 export const metadata: Metadata = {
   title: "Products | Retail Bandhu",
   description: "Products and solutions offered by Retail Bandhu",
 }
 
-export default function ProductsPage() {
+export default async function ProductsPage() {
+  const supabase = createServerSupabaseClient()
+
+  // Get user session
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+
+  // If user is logged in, check their role
+  if (session) {
+    const { data: profile } = await supabase.from("profiles").select("role").eq("id", session.user.id).single()
+
+    // If user is admin, retailer, or wholesaler, redirect to manage-products
+    if (profile && ["admin", "retailer", "wholesaler"].includes(profile.role)) {
+      redirect("/manage-products")
+    }
+  }
+
   const products = [
     {
       title: "Inventory Management",
@@ -52,13 +71,11 @@ export default function ProductsPage() {
   ]
 
   return (
-    <div className="container py-12 px-4 md:px-6">
-      <div className="mb-12 text-center">
-        <h1 className="text-4xl font-bold tracking-tight mb-4">Our Products</h1>
-        <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-          Explore our comprehensive suite of products designed to streamline your retail operations.
-        </p>
-      </div>
+    <div className="container mx-auto py-12">
+      <h1 className="text-4xl font-bold text-center mb-8">Our Products</h1>
+      <p className="text-xl text-center max-w-3xl mx-auto mb-12">
+        Explore our comprehensive suite of products designed to streamline your retail operations.
+      </p>
 
       <div className="space-y-12">
         {products.map((product, index) => (

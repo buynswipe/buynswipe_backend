@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useEffect, useState } from "react"
@@ -17,6 +17,7 @@ interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
 
 export function Sidebar({ className }: SidebarProps) {
   const pathname = usePathname()
+  const router = useRouter()
   const [userRole, setUserRole] = useState<string | null>(null)
   const [navItems, setNavItems] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -64,6 +65,18 @@ export function Sidebar({ className }: SidebarProps) {
     setOpenSections((prev) => (prev.includes(section) ? prev.filter((s) => s !== section) : [...prev, section]))
   }
 
+  // Handle navigation with client-side routing
+  const handleNavigation = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    e.preventDefault()
+
+    // Fix for the products navigation issue - ensure we're going to the correct route
+    if (href === "/products" && (userRole === "admin" || userRole === "retailer" || userRole === "wholesaler")) {
+      router.push("/manage-products")
+    } else {
+      router.push(href)
+    }
+  }
+
   if (userRole === "delivery_partner") {
     return null
   }
@@ -101,7 +114,11 @@ export function Sidebar({ className }: SidebarProps) {
         <ScrollArea className="h-[calc(100vh-8rem)]">
           <nav className="space-y-2">
             {navItems.map((item) => {
-              const isActive = pathname === item.href
+              // Ensure correct path comparison for active state
+              const isActive =
+                pathname === item.href ||
+                (item.href === "/manage-products" && pathname === "/products") ||
+                pathname.startsWith(`${item.href}/`)
               const hasChildren = item.children && item.children.length > 0
 
               if (hasChildren) {
@@ -116,25 +133,37 @@ export function Sidebar({ className }: SidebarProps) {
                       <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
                     </CollapsibleTrigger>
                     <CollapsibleContent className="ml-7 mt-2 space-y-1">
-                      {item.children.map((child: any) => (
-                        <Link
-                          key={child.href}
-                          href={child.href}
-                          className={cn("nav-link text-sm", pathname === child.href && "active")}
-                        >
-                          <span>{child.title}</span>
-                        </Link>
-                      ))}
+                      {item.children.map((child: any) => {
+                        const childIsActive =
+                          pathname === child.href ||
+                          (child.href === "/manage-products" && pathname === "/products") ||
+                          pathname.startsWith(`${child.href}/`)
+                        return (
+                          <a
+                            key={child.href}
+                            href={child.href}
+                            onClick={(e) => handleNavigation(e, child.href)}
+                            className={cn("nav-link text-sm", childIsActive && "active")}
+                          >
+                            <span>{child.title}</span>
+                          </a>
+                        )
+                      })}
                     </CollapsibleContent>
                   </Collapsible>
                 )
               }
 
               return (
-                <Link key={item.href} href={item.href} className={cn("nav-link", isActive && "active")}>
+                <a
+                  key={item.href}
+                  href={item.href}
+                  onClick={(e) => handleNavigation(e, item.href)}
+                  className={cn("nav-link", isActive && "active")}
+                >
                   <item.icon className="h-4 w-4" />
                   <span>{item.title}</span>
-                </Link>
+                </a>
               )
             })}
           </nav>
