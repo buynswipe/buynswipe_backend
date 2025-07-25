@@ -1,225 +1,372 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Plus, ArrowRight, TrendingUp, Users, ShoppingBag, Package } from "lucide-react"
-import Link from "next/link"
-import { useEffect, useState } from "react"
+import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Package,
+  ShoppingCart,
+  Truck,
+  AlertTriangle,
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
+  Activity,
+  RefreshCw,
+} from "lucide-react"
+import { useRouter } from "next/navigation"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
+interface DashboardStats {
+  totalProducts: number
+  lowStockProducts: number
+  pendingOrders: number
+  deliveryPartners: number
+  totalRevenue: number
+  monthlyGrowth: number
+}
+
+interface RecentActivity {
+  id: string
+  type: "order" | "product" | "delivery" | "payment"
+  title: string
+  description: string
+  timestamp: string
+  status: "pending" | "completed" | "warning" | "error"
+}
+
 export default function DashboardContent() {
-  const [profile, setProfile] = useState<any>(null)
-  const [orders, setOrders] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [activities, setActivities] = useState<RecentActivity[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [userProfile, setUserProfile] = useState<any>(null)
+  const router = useRouter()
   const supabase = createClientComponentClient()
 
   useEffect(() => {
-    async function loadDashboardData() {
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession()
+    fetchDashboardData()
+    fetchUserProfile()
+  }, [])
 
-        if (!session) return
-
-        // Load profile
-        const { data: profileData } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
-
-        setProfile(profileData)
-
-        // Load recent orders
-        const { data: ordersData } = await supabase
-          .from("orders")
-          .select("*")
-          .order("created_at", { ascending: false })
-          .limit(5)
-
-        setOrders(ordersData || [])
-      } catch (error) {
-        console.error("Error loading dashboard data:", error)
-      } finally {
-        setLoading(false)
+  const fetchUserProfile = async () => {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      if (session) {
+        const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
+        setUserProfile(profile)
       }
+    } catch (error) {
+      console.error("Error fetching user profile:", error)
     }
+  }
 
-    loadDashboardData()
-  }, [supabase])
+  const fetchDashboardData = async () => {
+    try {
+      setIsLoading(true)
 
-  if (loading) {
-    return <div>Loading dashboard data...</div>
+      // Fetch dashboard statistics
+      const statsResponse = await fetch("/api/dashboard/stats")
+      if (statsResponse.ok) {
+        const statsData = await statsResponse.json()
+        setStats(statsData.stats)
+      }
+
+      // Fetch recent activities
+      const activitiesResponse = await fetch("/api/dashboard/activities")
+      if (activitiesResponse.ok) {
+        const activitiesData = await activitiesResponse.json()
+        setActivities(activitiesData.activities)
+      }
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error)
+      // Set mock data for demo
+      setStats({
+        totalProducts: 9,
+        lowStockProducts: 1,
+        pendingOrders: 3,
+        deliveryPartners: 0,
+        totalRevenue: 125000,
+        monthlyGrowth: 12.5,
+      })
+      setActivities([
+        {
+          id: "1",
+          type: "product",
+          title: "Update your product inventory",
+          description: "2 products are running low on stock",
+          timestamp: "2 hours ago",
+          status: "warning",
+        },
+        {
+          id: "2",
+          type: "order",
+          title: "Process new orders (3)",
+          description: "3 new orders received today",
+          timestamp: "4 hours ago",
+          status: "pending",
+        },
+        {
+          id: "3",
+          type: "delivery",
+          title: "Manage delivery partners",
+          description: "No active delivery partners",
+          timestamp: "1 day ago",
+          status: "error",
+        },
+        {
+          id: "4",
+          type: "order",
+          title: "Track sales performance",
+          description: "Monthly sales increased by 12.5%",
+          timestamp: "2 days ago",
+          status: "completed",
+        },
+      ])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const getWelcomeMessage = () => {
+    if (!userProfile) return "Welcome to Retail Bandhu"
+
+    const businessName = userProfile.business_name || userProfile.full_name || "User"
+    const role = userProfile.role
+
+    switch (role) {
+      case "wholesaler":
+        return `Welcome, ${businessName}`
+      case "retailer":
+        return `Welcome, ${businessName}`
+      case "delivery_partner":
+        return `Welcome, ${userProfile.full_name || "Delivery Partner"}`
+      case "admin":
+        return `Welcome, Admin`
+      default:
+        return `Welcome, ${businessName}`
+    }
+  }
+
+  const getActivityIcon = (type: string) => {
+    switch (type) {
+      case "order":
+        return <ShoppingCart className="h-4 w-4" />
+      case "product":
+        return <Package className="h-4 w-4" />
+      case "delivery":
+        return <Truck className="h-4 w-4" />
+      case "payment":
+        return <DollarSign className="h-4 w-4" />
+      default:
+        return <Activity className="h-4 w-4" />
+    }
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "completed":
+        return "bg-green-100 text-green-800"
+      case "pending":
+        return "bg-blue-100 text-blue-800"
+      case "warning":
+        return "bg-yellow-100 text-yellow-800"
+      case "error":
+        return "bg-red-100 text-red-800"
+      default:
+        return "bg-gray-100 text-gray-800"
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto py-6 space-y-6">
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-4 w-96" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-32" />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Skeleton className="h-96" />
+          <Skeleton className="h-96" />
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="space-y-8">
-      {/* Page Header */}
-      <div className="page-header">
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Welcome back, {profile?.business_name || "User"}! Here's what's happening with your business today.
-        </p>
+    <div className="container mx-auto py-6 space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <h2 className="text-xl text-muted-foreground">{getWelcomeMessage()}</h2>
+          <p className="text-muted-foreground">{"Here's what's happening with your account today."}</p>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Button variant="outline" size="sm" onClick={fetchDashboardData}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+          <p className="text-sm text-muted-foreground">Last updated: {new Date().toLocaleTimeString()}</p>
+        </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="modern-card">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
-            <div className="p-2 rounded-full bg-blue-50 dark:bg-blue-900/20">
-              <ShoppingBag className="h-4 w-4 text-blue-600" />
-            </div>
+            <CardTitle className="text-sm font-medium">Total Products</CardTitle>
+            <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">171</div>
+            <div className="text-2xl font-bold">{stats?.totalProducts || 0}</div>
+            <p className="text-xs text-muted-foreground">Active products in catalog</p>
           </CardContent>
         </Card>
-        <Card className="modern-card">
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Low Stock Products</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-yellow-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-yellow-600">{stats?.lowStockProducts || 0}</div>
+            <p className="text-xs text-muted-foreground">Need immediate attention</p>
+          </CardContent>
+        </Card>
+
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pending Orders</CardTitle>
-            <div className="p-2 rounded-full bg-orange-50 dark:bg-orange-900/20">
-              <Package className="h-4 w-4 text-orange-600" />
-            </div>
+            <ShoppingCart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">1</div>
+            <div className="text-2xl font-bold">{stats?.pendingOrders || 0}</div>
+            <p className="text-xs text-muted-foreground">Awaiting processing</p>
           </CardContent>
         </Card>
-        <Card className="modern-card">
+
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Confirmed Orders</CardTitle>
-            <div className="p-2 rounded-full bg-green-50 dark:bg-green-900/20">
-              <TrendingUp className="h-4 w-4 text-green-600" />
-            </div>
+            <CardTitle className="text-sm font-medium">Delivery Partners</CardTitle>
+            <Truck className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">63</div>
-          </CardContent>
-        </Card>
-        <Card className="modern-card">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Customers</CardTitle>
-            <div className="p-2 rounded-full bg-purple-50 dark:bg-purple-900/20">
-              <Users className="h-4 w-4 text-purple-600" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">64</div>
+            <div className="text-2xl font-bold">{stats?.deliveryPartners || 0}</div>
+            <p className="text-xs text-muted-foreground">Active partners</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Quick Actions */}
-      <div className="section-header">
-        <h2 className="text-xl font-semibold">Quick Actions</h2>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card className="modern-card group hover:shadow-lg transition-all duration-200">
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-900/20 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/30 transition-colors">
-                <Plus className="h-5 w-5 text-blue-600" />
-              </div>
-              <div>
-                <CardTitle className="text-lg">Add Product</CardTitle>
-                <CardDescription>Add new products to your inventory</CardDescription>
-              </div>
-            </div>
+      {/* Main Content */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Quick Actions */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Quick Actions</CardTitle>
+            <CardDescription>Common tasks you can perform.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <Button asChild className="w-full">
-              <Link href="/products/new">
-                Add Product
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
+          <CardContent className="space-y-4">
+            <Button className="w-full justify-start" variant="default" onClick={() => router.push("/manage-products")}>
+              <Package className="mr-2 h-4 w-4" />
+              Manage Products
+            </Button>
+            <Button
+              className="w-full justify-start bg-transparent"
+              variant="outline"
+              onClick={() => router.push("/order-management")}
+            >
+              <ShoppingCart className="mr-2 h-4 w-4" />
+              Manage Orders
+            </Button>
+            <Button
+              className="w-full justify-start bg-transparent"
+              variant="outline"
+              onClick={() => router.push("/delivery-partners")}
+            >
+              <Truck className="mr-2 h-4 w-4" />
+              Manage Delivery Partners
+            </Button>
+            <Button
+              className="w-full justify-start bg-transparent"
+              variant="outline"
+              onClick={() => router.push("/inventory-alerts")}
+            >
+              <AlertTriangle className="mr-2 h-4 w-4" />
+              View Inventory Alerts
             </Button>
           </CardContent>
         </Card>
 
-        <Card className="modern-card group hover:shadow-lg transition-all duration-200">
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-green-50 dark:bg-green-900/20 group-hover:bg-green-100 dark:group-hover:bg-green-900/30 transition-colors">
-                <ShoppingBag className="h-5 w-5 text-green-600" />
-              </div>
-              <div>
-                <CardTitle className="text-lg">View Orders</CardTitle>
-                <CardDescription>Manage your recent orders</CardDescription>
-              </div>
-            </div>
+        {/* Recent Activity */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Activity</CardTitle>
+            <CardDescription>Your recent activity on the platform.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button asChild variant="outline" className="w-full">
-              <Link href="/orders">
-                View Orders
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card className="modern-card group hover:shadow-lg transition-all duration-200">
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-900/20 group-hover:bg-purple-100 dark:group-hover:bg-purple-900/30 transition-colors">
-                <TrendingUp className="h-5 w-5 text-purple-600" />
-              </div>
-              <div>
-                <CardTitle className="text-lg">Analytics</CardTitle>
-                <CardDescription>View detailed business insights</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <Button asChild variant="outline" className="w-full">
-              <Link href="/analytics">
-                View Analytics
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Recent Orders */}
-      <div className="section-header">
-        <h2 className="text-xl font-semibold">Recent Orders</h2>
-        <Button variant="outline" size="sm" asChild>
-          <Link href="/orders">View All</Link>
-        </Button>
-      </div>
-
-      <Card className="modern-card">
-        <CardContent className="p-6">
-          <div className="space-y-4">
-            {orders.length > 0 ? (
-              orders.map((order) => (
-                <div
-                  key={order.id}
-                  className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/20">
-                      <ShoppingBag className="h-4 w-4 text-blue-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">Order #{order.reference || order.id}</p>
-                      <p className="text-xs text-gray-500">{new Date(order.created_at).toLocaleDateString()}</p>
+            <div className="space-y-4">
+              {activities.map((activity) => (
+                <div key={activity.id} className="flex items-start space-x-3">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                      {getActivityIcon(activity.type)}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">₹{order.total_amount}</span>
-                    <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-                      {order.status}
-                    </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium text-gray-900">{activity.title}</p>
+                      <Badge className={getStatusColor(activity.status)} variant="secondary">
+                        {activity.status}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-gray-500">{activity.description}</p>
+                    <p className="text-xs text-gray-400">{activity.timestamp}</p>
                   </div>
                 </div>
-              ))
-            ) : (
-              <p className="text-center text-muted-foreground py-4">No recent orders found.</p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Revenue Card */}
+      {stats?.totalRevenue && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Revenue Overview</CardTitle>
+            <CardDescription>Your business performance this month</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold">₹{stats.totalRevenue.toLocaleString()}</div>
+                <p className="text-sm text-muted-foreground">Total revenue this month</p>
+              </div>
+              <div className="flex items-center space-x-2">
+                {stats.monthlyGrowth > 0 ? (
+                  <TrendingUp className="h-4 w-4 text-green-600" />
+                ) : (
+                  <TrendingDown className="h-4 w-4 text-red-600" />
+                )}
+                <span className={`text-sm font-medium ${stats.monthlyGrowth > 0 ? "text-green-600" : "text-red-600"}`}>
+                  {stats.monthlyGrowth > 0 ? "+" : ""}
+                  {stats.monthlyGrowth}%
+                </span>
+                <span className="text-sm text-muted-foreground">from last month</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
