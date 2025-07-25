@@ -1,11 +1,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -14,345 +14,300 @@ import {
   PieChart,
   Pie,
   Cell,
-  LineChart,
-  Line,
-  Area,
-  AreaChart,
 } from "recharts"
-import { TrendingUp, TrendingDown, Package, AlertTriangle, Calendar, Target, Activity } from "lucide-react"
+import { TrendingUp, TrendingDown, Target, Package, Activity } from "lucide-react"
 
 interface AnalyticsData {
-  stockMovements: Array<{
+  stockMovement: Array<{
     date: string
     inbound: number
     outbound: number
-    adjustments: number
+    net: number
   }>
   categoryPerformance: Array<{
-    category: string
+    name: string
     value: number
-    count: number
     growth: number
+    color: string
   }>
   topMovingItems: Array<{
     name: string
-    barcode: string
-    movement: number
-    trend: "up" | "down" | "stable"
+    quantity: number
+    trend: "up" | "down"
+    percentage: number
   }>
-  stockTurnover: Array<{
-    month: string
-    turnover: number
+  turnoverMetrics: {
+    overall: number
     target: number
-  }>
-  alerts: {
-    critical: number
-    warning: number
-    info: number
+    categories: Array<{
+      name: string
+      turnover: number
+      target: number
+    }>
   }
 }
 
+const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8"]
+
 export function InventoryAnalytics() {
-  const [data, setData] = useState<AnalyticsData>({
-    stockMovements: [],
-    categoryPerformance: [],
-    topMovingItems: [],
-    stockTurnover: [],
-    alerts: { critical: 0, warning: 0, info: 0 },
-  })
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
   const [timeRange, setTimeRange] = useState("30d")
-  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    loadAnalyticsData()
+    fetchAnalyticsData()
   }, [timeRange])
 
-  const loadAnalyticsData = async () => {
-    setLoading(true)
+  const fetchAnalyticsData = async () => {
     try {
-      // Mock data - replace with actual API calls
+      setIsLoading(true)
+
+      // Mock analytics data
       const mockData: AnalyticsData = {
-        stockMovements: [
-          { date: "2024-01-01", inbound: 120, outbound: 80, adjustments: 5 },
-          { date: "2024-01-02", inbound: 95, outbound: 110, adjustments: 2 },
-          { date: "2024-01-03", inbound: 140, outbound: 95, adjustments: 8 },
-          { date: "2024-01-04", inbound: 110, outbound: 125, adjustments: 3 },
-          { date: "2024-01-05", inbound: 85, outbound: 90, adjustments: 1 },
-          { date: "2024-01-06", inbound: 160, outbound: 140, adjustments: 6 },
-          { date: "2024-01-07", inbound: 130, outbound: 115, adjustments: 4 },
+        stockMovement: [
+          { date: "2024-01-01", inbound: 120, outbound: 80, net: 40 },
+          { date: "2024-01-02", inbound: 150, outbound: 95, net: 55 },
+          { date: "2024-01-03", inbound: 100, outbound: 110, net: -10 },
+          { date: "2024-01-04", inbound: 180, outbound: 120, net: 60 },
+          { date: "2024-01-05", inbound: 140, outbound: 100, net: 40 },
+          { date: "2024-01-06", inbound: 160, outbound: 130, net: 30 },
+          { date: "2024-01-07", inbound: 200, outbound: 150, net: 50 },
         ],
         categoryPerformance: [
-          { category: "Beverages", value: 45000, count: 25, growth: 12.5 },
-          { category: "Snacks", value: 32000, count: 18, growth: 8.3 },
-          { category: "Groceries", value: 28000, count: 22, growth: -2.1 },
-          { category: "Personal Care", value: 15000, count: 12, growth: 15.7 },
-          { category: "Household", value: 12000, count: 8, growth: 5.2 },
+          { name: "Groceries", value: 65, growth: 12.5, color: "#0088FE" },
+          { name: "Beverages", value: 25, growth: -3.2, color: "#00C49F" },
+          { name: "Snacks", value: 10, growth: 8.7, color: "#FFBB28" },
         ],
         topMovingItems: [
-          { name: "Coca Cola 500ml", barcode: "1234567890123", movement: 150, trend: "up" },
-          { name: "Lays Classic 50g", barcode: "9876543210987", movement: 120, trend: "up" },
-          { name: "Maggi Noodles", barcode: "5555555555555", movement: 95, trend: "stable" },
-          { name: "Colgate Total", barcode: "1111111111111", movement: 75, trend: "down" },
-          { name: "Surf Excel 1kg", barcode: "7777777777777", movement: 60, trend: "up" },
+          { name: "Rice 1kg", quantity: 450, trend: "up", percentage: 15.2 },
+          { name: "Tea 250g", quantity: 320, trend: "up", percentage: 8.7 },
+          { name: "Sugar 1kg", quantity: 280, trend: "down", percentage: -5.3 },
+          { name: "Cooking Oil 1L", quantity: 190, trend: "up", percentage: 12.1 },
+          { name: "Wheat Flour 1kg", quantity: 150, trend: "down", percentage: -2.8 },
         ],
-        stockTurnover: [
-          { month: "Jan", turnover: 4.2, target: 4.0 },
-          { month: "Feb", turnover: 3.8, target: 4.0 },
-          { month: "Mar", turnover: 4.5, target: 4.0 },
-          { month: "Apr", turnover: 4.1, target: 4.0 },
-          { month: "May", turnover: 4.7, target: 4.0 },
-          { month: "Jun", turnover: 4.3, target: 4.0 },
-        ],
-        alerts: { critical: 5, warning: 12, info: 8 },
+        turnoverMetrics: {
+          overall: 4.2,
+          target: 5.0,
+          categories: [
+            { name: "Groceries", turnover: 4.8, target: 5.5 },
+            { name: "Beverages", turnover: 3.2, target: 4.0 },
+            { name: "Snacks", turnover: 6.1, target: 6.0 },
+          ],
+        },
       }
 
-      setData(mockData)
+      // Simulate API delay
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      setAnalyticsData(mockData)
     } catch (error) {
-      console.error("Error loading analytics data:", error)
+      console.error("Error fetching analytics data:", error)
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
   }
 
-  const COLORS = ["#3B82F6", "#EF4444", "#10B981", "#F59E0B", "#8B5CF6"]
-
-  if (loading) {
+  if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="space-y-6">
+        <div className="animate-pulse">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="h-32 bg-gray-200 rounded"></div>
+            ))}
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-80 bg-gray-200 rounded"></div>
+            ))}
+          </div>
+        </div>
       </div>
     )
   }
 
+  if (!analyticsData) return null
+
   return (
     <div className="space-y-6">
+      {/* Time Range Selector */}
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold">Inventory Analytics</h2>
+        <div className="flex gap-2">
+          {["7d", "30d", "90d"].map((range) => (
+            <button
+              key={range}
+              onClick={() => setTimeRange(range)}
+              className={`px-3 py-1 rounded text-sm ${
+                timeRange === range ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80"
+              }`}
+            >
+              {range}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Stock Turnover</p>
-                <p className="text-2xl font-bold">4.3x</p>
-                <p className="text-xs text-green-600 flex items-center mt-1">
-                  <TrendingUp className="h-3 w-3 mr-1" />
-                  +7.5% vs target
-                </p>
-              </div>
-              <Activity className="h-8 w-8 text-blue-600" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Stock Turnover</CardTitle>
+            <Activity className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{analyticsData.turnoverMetrics.overall}x</div>
+            <div className="flex items-center text-xs text-muted-foreground">
+              <Target className="mr-1 h-3 w-3" />
+              Target: {analyticsData.turnoverMetrics.target}x
             </div>
+            <Progress
+              value={(analyticsData.turnoverMetrics.overall / analyticsData.turnoverMetrics.target) * 100}
+              className="mt-2"
+            />
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Avg. Days to Sell</p>
-                <p className="text-2xl font-bold">85</p>
-                <p className="text-xs text-green-600 flex items-center mt-1">
-                  <TrendingDown className="h-3 w-3 mr-1" />
-                  -12 days improved
-                </p>
-              </div>
-              <Calendar className="h-8 w-8 text-green-600" />
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Movement Trend</CardTitle>
+            <TrendingUp className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">+12.5%</div>
+            <p className="text-xs text-muted-foreground">vs previous period</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Dead Stock Value</p>
-                <p className="text-2xl font-bold">₹8,500</p>
-                <p className="text-xs text-red-600 flex items-center mt-1">
-                  <AlertTriangle className="h-3 w-3 mr-1" />3 items affected
-                </p>
-              </div>
-              <Package className="h-8 w-8 text-red-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Reorder Point Hit</p>
-                <p className="text-2xl font-bold">92%</p>
-                <p className="text-xs text-green-600 flex items-center mt-1">
-                  <Target className="h-3 w-3 mr-1" />
-                  Optimal level
-                </p>
-              </div>
-              <Target className="h-8 w-8 text-purple-600" />
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Avg Days to Sell</CardTitle>
+            <Package className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">8.5</div>
+            <p className="text-xs text-muted-foreground">days average</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Charts */}
-      <Tabs defaultValue="movements" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="movements">Stock Movements</TabsTrigger>
-          <TabsTrigger value="categories">Category Performance</TabsTrigger>
-          <TabsTrigger value="turnover">Turnover Analysis</TabsTrigger>
-          <TabsTrigger value="items">Top Items</TabsTrigger>
-        </TabsList>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Stock Movement Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Stock Movement Trends</CardTitle>
+            <CardDescription>Inbound vs Outbound inventory over time</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart data={analyticsData.stockMovement}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis />
+                <Tooltip />
+                <Area type="monotone" dataKey="inbound" stackId="1" stroke="#0088FE" fill="#0088FE" fillOpacity={0.6} />
+                <Area
+                  type="monotone"
+                  dataKey="outbound"
+                  stackId="2"
+                  stroke="#FF8042"
+                  fill="#FF8042"
+                  fillOpacity={0.6}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
 
-        <TabsContent value="movements">
-          <Card>
-            <CardHeader>
-              <CardTitle>Stock Movement Trends</CardTitle>
-            </CardHeader>
-            <CardContent>
+        {/* Category Performance */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Category Performance</CardTitle>
+            <CardDescription>Distribution and growth by category</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-center">
               <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={data.stockMovements}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
+                <PieChart>
+                  <Pie
+                    data={analyticsData.categoryPerformance}
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                    label={({ name, value }) => `${name}: ${value}%`}
+                  >
+                    {analyticsData.categoryPerformance.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
                   <Tooltip />
-                  <Area type="monotone" dataKey="inbound" stackId="1" stroke="#10B981" fill="#10B981" />
-                  <Area type="monotone" dataKey="outbound" stackId="1" stroke="#EF4444" fill="#EF4444" />
-                  <Area type="monotone" dataKey="adjustments" stackId="1" stroke="#F59E0B" fill="#F59E0B" />
-                </AreaChart>
+                </PieChart>
               </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </TabsContent>
+            </div>
+          </CardContent>
+        </Card>
 
-        <TabsContent value="categories">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Category Value Distribution</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={data.categoryPerformance}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ category, value }) => `${category}: ₹${value.toLocaleString()}`}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {data.categoryPerformance.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Category Growth</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {data.categoryPerformance.map((category, index) => (
-                    <div key={category.category} className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                          <div
-                            className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                          />
-                          <span className="font-medium">{category.category}</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Badge
-                            variant={
-                              category.growth > 0 ? "default" : category.growth < 0 ? "destructive" : "secondary"
-                            }
-                          >
-                            {category.growth > 0 ? "+" : ""}
-                            {category.growth.toFixed(1)}%
-                          </Badge>
-                          {category.growth > 0 ? (
-                            <TrendingUp className="h-4 w-4 text-green-600" />
-                          ) : category.growth < 0 ? (
-                            <TrendingDown className="h-4 w-4 text-red-600" />
-                          ) : (
-                            <div className="h-4 w-4" />
-                          )}
-                        </div>
-                      </div>
-                      <Progress
-                        value={Math.abs(category.growth) * 5} // Scale for visualization
-                        className="h-2"
-                      />
+        {/* Top Moving Items */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Top Moving Items</CardTitle>
+            <CardDescription>Items with highest movement this period</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {analyticsData.topMovingItems.map((item, index) => (
+                <div key={index} className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sm font-medium">
+                      {index + 1}
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="turnover">
-          <Card>
-            <CardHeader>
-              <CardTitle>Stock Turnover vs Target</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={data.stockTurnover}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="turnover" stroke="#3B82F6" strokeWidth={3} />
-                  <Line type="monotone" dataKey="target" stroke="#EF4444" strokeDasharray="5 5" />
-                </LineChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="items">
-          <Card>
-            <CardHeader>
-              <CardTitle>Top Moving Items</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {data.topMovingItems.map((item, index) => (
-                  <div key={item.barcode} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <div className="text-lg font-bold text-gray-400">#{index + 1}</div>
-                      <div>
-                        <h4 className="font-medium">{item.name}</h4>
-                        <p className="text-sm text-gray-600 font-mono">{item.barcode}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <div className="text-right">
-                        <p className="font-medium">{item.movement} units</p>
-                        <p className="text-sm text-gray-600">this period</p>
-                      </div>
-                      {item.trend === "up" ? (
-                        <TrendingUp className="h-5 w-5 text-green-600" />
-                      ) : item.trend === "down" ? (
-                        <TrendingDown className="h-5 w-5 text-red-600" />
-                      ) : (
-                        <div className="h-5 w-5 bg-gray-400 rounded-full" />
-                      )}
+                    <div>
+                      <div className="font-medium">{item.name}</div>
+                      <div className="text-sm text-muted-foreground">{item.quantity} units</div>
                     </div>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+                  <div className="flex items-center gap-2">
+                    {item.trend === "up" ? (
+                      <TrendingUp className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <TrendingDown className="h-4 w-4 text-red-600" />
+                    )}
+                    <span className={`text-sm font-medium ${item.trend === "up" ? "text-green-600" : "text-red-600"}`}>
+                      {item.percentage > 0 ? "+" : ""}
+                      {item.percentage}%
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Turnover by Category */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Turnover by Category</CardTitle>
+            <CardDescription>Performance vs targets</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {analyticsData.turnoverMetrics.categories.map((category, index) => (
+                <div key={index} className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium">{category.name}</span>
+                    <span className="text-sm text-muted-foreground">
+                      {category.turnover}x / {category.target}x
+                    </span>
+                  </div>
+                  <Progress value={(category.turnover / category.target) * 100} className="h-2" />
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }
