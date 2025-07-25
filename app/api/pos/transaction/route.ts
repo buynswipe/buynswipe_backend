@@ -5,119 +5,148 @@ import { type NextRequest, NextResponse } from "next/server"
 export async function POST(request: NextRequest) {
   try {
     const supabase = createRouteHandlerClient({ cookies })
+    const body = await request.json()
+
+    // Check authentication
     const {
       data: { session },
+      error: authError,
     } = await supabase.auth.getSession()
-
-    if (!session) {
+    if (authError || !session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const transactionData = await request.json()
-    const {
-      sessionId,
-      customerId,
-      discountId,
-      items,
-      subtotal,
-      tax,
-      total,
-      discountAmount,
-      paymentData,
-      loyaltyPointsEarned,
-    } = transactionData
+    const { items, payment_method, total_amount, tax_amount, discount_amount, customer_info, pos_session_id } = body
 
-    // Generate transaction ID
-    const transactionId = `TXN_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-
-    // Create transaction record
-    const transaction = {
-      id: transactionId,
-      sessionId,
-      customerId,
-      discountId,
-      items,
-      subtotal,
-      tax,
-      total,
-      discountAmount: discountAmount || 0,
-      paymentMethod: paymentData.method || "cash",
-      paymentAmount: paymentData.amount || total,
-      change: Math.max(0, (paymentData.amount || total) - total),
-      loyaltyPointsEarned: loyaltyPointsEarned || 0,
-      cashierId: session.user.id,
-      timestamp: new Date().toISOString(),
-      status: "completed",
-      receiptNumber: `RCP_${Date.now()}`,
+    // Validate required fields
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return NextResponse.json({ error: "Items are required" }, { status: 400 })
     }
 
-    // In a real implementation, you would:
-    // 1. Save transaction to database
-    // 2. Update inventory
-    // 3. Update customer loyalty points
-    // 4. Generate receipt
-    // 5. Send notifications
+    if (!payment_method || !total_amount) {
+      return NextResponse.json({ error: "Payment method and total amount are required" }, { status: 400 })
+    }
 
-    console.log("Transaction processed:", transaction)
+    // Start transaction
+    const { data: transaction, error: transactionError } = await supabase
+      .from("pos_transactions")
+      .insert({
+        user_id: session.user.id,
+        pos_session_id,
+        payment_method,
+        total_amount: Number.parseFloat(total_amount),
+        tax_amount: Number.parseFloat(tax_amount) || 0,
+        discount_amount: Number.parseFloat(discount_amount) || 0,
+        customer_info,
+        status: "completed",
+        created_at: new Date().toISOString(),
+      })
+      .select()
+      .single()
+
+    if (transactionError) {
+      return NextResponse.json({ error: "Failed to create transaction" }, { status: 500 })
+    }
+
+    // Add transaction items
+    const transactionItems = items.map((item: any) => ({
+      transaction_id: transaction.id,
+      product_id: item.product_id,
+      quantity: Number.parseInt(item.quantity),
+      unit_price: Number.parseFloat(item.unit_price),
+      total_price: Number.parseFloat(item.total_price),
+      discount_amount: Number.parseFloat(item.discount_amount) || 0,
+    }))
+
+    const { error: itemsError } = await supabase.from("pos_transaction_items").insert(transactionItems)
+
+    if (itemsError) {
+      // Rollback transaction
+      await supabase.from("pos_transactions").delete().eq("id", transaction.id)
+      return NextResponse.json({ error: "Failed to add transaction items" }, { status: 500 })
+    }
+
+    // Update product stock quantities
+    for (const item of items) {
+      const { error: stockError } = await supabase.rpc("update_product_stock", {
+        product_id: item.product_id,
+        quantity_sold: Number.parseInt(item.quantity),
+      })
+
+      if (stockError) {
+        console.error("Failed to update stock for product:", item.product_id, stockError)
+        // Continue with other items even if one fails
+      }
+    }
 
     return NextResponse.json({
       success: true,
       transaction,
       message: "Transaction completed successfully",
     })
-  } catch (error: any) {
-    console.error("Transaction processing error:", error)
-    return NextResponse.json(
-      {
-        error: "Transaction failed",
-        details: error.message,
-      },
-      { status: 500 },
-    )
+  } catch (error) {
+    console.error("API Error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
 
 export async function GET(request: NextRequest) {
   try {
     const supabase = createRouteHandlerClient({ cookies })
+    const { searchParams } = new URL(request.url)
+
+    const page = Number.parseInt(searchParams.get("page") || "1")
+    const limit = Number.parseInt(searchParams.get("limit") || "20")
+    const offset = (page - 1) * limit
+
+    // Check authentication
     const {
       data: { session },
+      error: authError,
     } = await supabase.auth.getSession()
-
-    if (!session) {
+    if (authError || !session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { searchParams } = new URL(request.url)
-    const sessionId = searchParams.get("sessionId")
-    const limit = Number.parseInt(searchParams.get("limit") || "50")
+    const {
+      data: transactions,
+      error,
+      count,
+    } = await supabase
+      .from("pos_transactions")
+      .select(
+        `
+        *,
+        pos_transaction_items (
+          *,
+          products (
+            name,
+            sku
+          )
+        )
+      `,
+        { count: "exact" },
+      )
+      .eq("user_id", session.user.id)
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1)
 
-    // Mock transaction history
-    const mockTransactions = [
-      {
-        id: "TXN_001",
-        timestamp: new Date().toISOString(),
-        total: 150.0,
-        items: 3,
-        paymentMethod: "cash",
-        customer: "John Doe",
-      },
-      {
-        id: "TXN_002",
-        timestamp: new Date(Date.now() - 3600000).toISOString(),
-        total: 75.5,
-        items: 2,
-        paymentMethod: "card",
-        customer: "Guest",
-      },
-    ]
+    if (error) {
+      return NextResponse.json({ error: "Failed to fetch transactions" }, { status: 500 })
+    }
 
     return NextResponse.json({
-      transactions: mockTransactions.slice(0, limit),
-      total: mockTransactions.length,
+      success: true,
+      transactions: transactions || [],
+      pagination: {
+        page,
+        limit,
+        total: count || 0,
+        totalPages: Math.ceil((count || 0) / limit),
+      },
     })
-  } catch (error: any) {
-    console.error("Transaction fetch error:", error)
+  } catch (error) {
+    console.error("API Error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
