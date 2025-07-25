@@ -136,13 +136,19 @@ export default async function MainDashboardPage() {
                   Manage Users
                 </Link>
               </Button>
-              <Button asChild variant="outline" className="w-full justify-start">
+              <Button asChild className="w-full justify-start">
+                <Link href="/manage-products">
+                  <Package className="mr-2 h-4 w-4" />
+                  Manage Products
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="w-full justify-start bg-transparent">
                 <Link href="/delivery-partners">
                   <Truck className="mr-2 h-4 w-4" />
                   Manage Delivery Partners
                 </Link>
               </Button>
-              <Button asChild variant="outline" className="w-full justify-start">
+              <Button asChild variant="outline" className="w-full justify-start bg-transparent">
                 <Link href="/transactions">
                   <BarChart className="mr-2 h-4 w-4" />
                   View Transactions
@@ -260,13 +266,19 @@ export default async function MainDashboardPage() {
                   View My Orders
                 </Link>
               </Button>
-              <Button asChild variant="outline" className="w-full justify-start">
+              <Button asChild className="w-full justify-start">
+                <Link href="/manage-products">
+                  <Package className="mr-2 h-4 w-4" />
+                  Manage Products
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="w-full justify-start bg-transparent">
                 <Link href="/wholesalers">
                   <Store className="mr-2 h-4 w-4" />
                   Browse Wholesalers
                 </Link>
               </Button>
-              <Button asChild variant="outline" className="w-full justify-start">
+              <Button asChild variant="outline" className="w-full justify-start bg-transparent">
                 <Link href="/profile">
                   <Users className="mr-2 h-4 w-4" />
                   Update Profile
