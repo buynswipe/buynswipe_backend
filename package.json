@@ -39,6 +39,7 @@
     "@radix-ui/react-toggle": "latest",
     "@radix-ui/react-toggle-group": "latest",
     "@radix-ui/react-tooltip": "latest",
+    "@react-email/render": "latest",
     "@supabase/auth-helpers-nextjs": "latest",
     "@supabase/supabase-js": "latest",
     "@tanstack/react-table": "latest",
@@ -57,6 +58,7 @@
     "nanoid": "latest",
     "next": "14.2.16",
     "next-themes": "latest",
+    "nodemailer": "7.0.6",
     "openai": "4.24.1",
     "path": "latest",
     "react": "^18",
@@ -65,12 +67,13 @@
     "react-hook-form": "latest",
     "react-resizable-panels": "latest",
     "recharts": "latest",
+    "resend": "latest",
     "sonner": "latest",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
     "uuid": "latest",
     "vaul": "latest",
-    "zod": "latest"
+    "zod": "4.1.11"
   },
   "devDependencies": {
     "@types/node": "^22",

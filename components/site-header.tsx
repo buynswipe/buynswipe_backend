@@ -1,92 +1,63 @@
 "use client"
 
-import type * as React from "react"
 import Link from "next/link"
-import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { MainNav } from "@/components/main-nav"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import { useEffect, useState } from "react"
 import { usePathname } from "next/navigation"
 import { isPublicRoute } from "@/lib/public-routes"
-import { ThemeToggle } from "./theme-toggle"
 
-export function SiteHeader({ className }: React.HTMLAttributes<HTMLElement>) {
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
-  const [userRole, setUserRole] = useState<string | null>(null)
+export function SiteHeader() {
   const pathname = usePathname()
-  const supabase = createClientComponentClient()
+  const isPublic = isPublicRoute(pathname || "/")
 
-  useEffect(() => {
-    const checkLoginStatus = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-
-      if (session) {
-        setIsLoggedIn(true)
-        // Get user role
-        const { data: profile } = await supabase.from("profiles").select("role").eq("id", session.user.id).single()
-
-        if (profile) {
-          setUserRole(profile.role)
-        }
-      } else {
-        setIsLoggedIn(false)
-      }
-      setIsLoading(false)
-    }
-
-    checkLoginStatus()
-  }, [supabase, pathname])
-
-  // Determine dashboard link based on user role
-  const getDashboardLink = () => {
-    if (userRole === "delivery_partner") {
-      return "/delivery-partner/dashboard"
-    }
-    return "/dashboard"
-  }
-
-  const isPublic = isPublicRoute(pathname || "")
-
-  if (!isPublic && !isLoading && isLoggedIn) {
-    return null // Don't render header for authenticated non-public pages
-  }
-
+  // In preview we always show the header. If you later enable auth, you can hide for protected routes.
   return (
-    <header
-      className={cn(
-        "sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 site-header",
-        className,
-      )}
-    >
-      <div className="container flex h-16 items-center space-x-4 sm:justify-between sm:space-x-0">
-        <MainNav />
-        <div className="flex flex-1 items-center justify-end space-x-4">
-          <ThemeToggle />
+    <header className="sticky top-0 z-40 w-full border-b bg-white/90 backdrop-blur">
+      <div className="container mx-auto flex h-16 items-center justify-between gap-4 px-6">
+        <Link href="/" className="flex items-center gap-3">
+          <img
+            src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Retail%20Bandhu%20Icon-UTC7N2g2VekiBnTd3BPQpxy6SJtc59.png"
+            alt="Retail Bandhu"
+            className="h-9 w-9 rounded-md"
+          />
+          <span className="hidden text-base font-semibold sm:inline">Retail Bandhu</span>
+        </Link>
 
-          {isLoading ? (
-            <div className="h-9 w-20 animate-pulse rounded bg-muted"></div>
-          ) : isLoggedIn ? (
-            <Button asChild>
-              <Link href={getDashboardLink()}>Dashboard</Link>
-            </Button>
-          ) : (
-            <div className="flex items-center space-x-1">
-              <Link href="/login">
-                <Button variant="ghost" className="text-sm">
-                  Login
-                </Button>
-              </Link>
-              <Link href="/register">
-                <Button className="text-sm">Get Started</Button>
-              </Link>
-            </div>
-          )}
+        <nav className="hidden items-center gap-6 md:flex">
+          <NavLink href="/features" label="Features" currentPath={pathname} />
+          <NavLink href="/products" label="Products" currentPath={pathname} />
+          <NavLink href="/company" label="Company" currentPath={pathname} />
+          <NavLink href="/contact" label="Contact" currentPath={pathname} />
+        </nav>
+
+        <div className="flex items-center gap-2">
+          <Button asChild variant="ghost">
+            <Link href="/login">Login</Link>
+          </Button>
+          <Button asChild className="bg-orange-500 hover:bg-orange-600">
+            <Link href="/register">Get Started</Link>
+          </Button>
         </div>
       </div>
     </header>
+  )
+}
+
+function NavLink({
+  href,
+  label,
+  currentPath,
+}: {
+  href: string
+  label: string
+  currentPath: string | null
+}) {
+  const isActive = currentPath === href
+  return (
+    <Link
+      href={href}
+      className={`text-sm ${isActive ? "font-semibold text-slate-900" : "text-slate-600 hover:text-slate-900"}`}
+    >
+      {label}
+    </Link>
   )
 }

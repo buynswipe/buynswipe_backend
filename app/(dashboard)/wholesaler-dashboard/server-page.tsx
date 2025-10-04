@@ -90,27 +90,27 @@ export default async function WholesalerDashboardServer() {
           </CardHeader>
           <CardContent className="space-y-4">
             <Button asChild className="w-full justify-start">
-              <Link href="/manage-products">
+              <Link href="/products">
                 <Package className="mr-2 h-4 w-4" />
                 Manage Products
               </Link>
             </Button>
 
-            <Button asChild variant="outline" className="w-full justify-start bg-transparent">
+            <Button asChild variant="outline" className="w-full justify-start">
               <Link href="/order-management">
                 <ShoppingCart className="mr-2 h-4 w-4" />
                 Manage Orders
               </Link>
             </Button>
 
-            <Button asChild variant="outline" className="w-full justify-start bg-transparent">
+            <Button asChild variant="outline" className="w-full justify-start">
               <Link href="/delivery-partners">
                 <Truck className="mr-2 h-4 w-4" />
                 Manage Delivery Partners
               </Link>
             </Button>
 
-            <Button asChild variant="outline" className="w-full justify-start bg-transparent">
+            <Button asChild variant="outline" className="w-full justify-start">
               <Link href="/inventory-alerts">
                 <AlertTriangle className="mr-2 h-4 w-4" />
                 View Inventory Alerts

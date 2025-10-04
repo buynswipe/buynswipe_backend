@@ -1,162 +1,66 @@
-import Link from "next/link"
-import { Facebook, Twitter, Instagram, Linkedin, Store } from "lucide-react"
-
 export function SiteFooter() {
   return (
-    <footer className="w-full border-t bg-background py-12 site-footer">
-      <div className="container grid grid-cols-1 gap-8 md:grid-cols-4">
-        <div className="flex flex-col">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary">
-              <Store className="h-4 w-4 text-primary-foreground" />
-            </div>
-            <h3 className="text-lg font-bold">Retail Bandhu</h3>
+    <footer className="border-t bg-white">
+      <div className="container mx-auto grid max-w-6xl grid-cols-1 gap-6 px-6 py-8 md:grid-cols-3">
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <img
+              src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Retail%20Bandhu%20Icon-UTC7N2g2VekiBnTd3BPQpxy6SJtc59.png"
+              alt="Retail Bandhu"
+              className="h-8 w-8 rounded-md"
+            />
+            <span className="font-semibold">Retail Bandhu</span>
           </div>
-          <p className="text-sm text-muted-foreground">
-            Connecting retailers and wholesalers across India with our comprehensive FMCG business management platform.
-          </p>
-          <div className="mt-4 flex space-x-4">
-            <Link href="#" className="text-muted-foreground hover:text-foreground transition-colors">
-              <Facebook className="h-5 w-5" />
-              <span className="sr-only">Facebook</span>
-            </Link>
-            <Link href="#" className="text-muted-foreground hover:text-foreground transition-colors">
-              <Twitter className="h-5 w-5" />
-              <span className="sr-only">Twitter</span>
-            </Link>
-            <Link href="#" className="text-muted-foreground hover:text-foreground transition-colors">
-              <Instagram className="h-5 w-5" />
-              <span className="sr-only">Instagram</span>
-            </Link>
-            <Link href="#" className="text-muted-foreground hover:text-foreground transition-colors">
-              <Linkedin className="h-5 w-5" />
-              <span className="sr-only">LinkedIn</span>
-            </Link>
+          <p className="text-sm text-slate-600">Digitizing India’s FMCG supply chain.</p>
+          <div className="mt-2">
+            <img
+              src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Your%20paragraph%20text%281%29-79vwxa9s8YJrBXoMPbyTOtxQa0dcri.png"
+              alt="Retail Bandhu banner"
+              className="w-full max-w-xs rounded"
+            />
           </div>
         </div>
+
         <div>
-          <h3 className="mb-4 text-lg font-bold">Products</h3>
-          <ul className="space-y-2 text-sm">
-            <li>
-              <Link
-                href="/products/inventory-management"
-                className="text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Inventory Management
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/products/order-processing"
-                className="text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Order Processing
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/products/delivery-tracking"
-                className="text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Delivery Tracking
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/products/payment-solutions"
-                className="text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Payment Solutions
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/products/analytics-reports"
-                className="text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Analytics & Reports
-              </Link>
-            </li>
+          <h4 className="mb-2 font-semibold">Contact</h4>
+          <ul className="space-y-1 text-sm text-slate-600">
+            <li>Address: E 16 Shiv Vihar Modinagar, Ghaziabad U.P 201204</li>
+            <li>Phone: +91 7417979002, +91 8171169007</li>
+            <li>Email: retailbandhu@gmail.com</li>
           </ul>
         </div>
+
         <div>
-          <h3 className="mb-4 text-lg font-bold">Resources</h3>
-          <ul className="space-y-2 text-sm">
+          <h4 className="mb-2 font-semibold">Quick Links</h4>
+          <ul className="space-y-1 text-sm text-slate-600">
             <li>
-              <Link
-                href="/resources/documentation"
-                className="text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Documentation
-              </Link>
+              <a href="/features" className="hover:underline">
+                Features
+              </a>
             </li>
             <li>
-              <Link
-                href="/resources/tutorials"
-                className="text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Tutorials
-              </Link>
+              <a href="/products" className="hover:underline">
+                Products
+              </a>
             </li>
             <li>
-              <Link href="/resources/blog" className="text-muted-foreground hover:text-foreground transition-colors">
-                Blog
-              </Link>
+              <a href="/company/about" className="hover:underline">
+                About
+              </a>
             </li>
             <li>
-              <Link
-                href="/resources/case-studies"
-                className="text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Case Studies
-              </Link>
-            </li>
-            <li>
-              <Link href="/resources/support" className="text-muted-foreground hover:text-foreground transition-colors">
-                Support Center
-              </Link>
-            </li>
-          </ul>
-        </div>
-        <div>
-          <h3 className="mb-4 text-lg font-bold">Company</h3>
-          <ul className="space-y-2 text-sm">
-            <li>
-              <Link href="/company/about" className="text-muted-foreground hover:text-foreground transition-colors">
-                About Us
-              </Link>
-            </li>
-            <li>
-              <Link href="/company/careers" className="text-muted-foreground hover:text-foreground transition-colors">
-                Careers
-              </Link>
-            </li>
-            <li>
-              <Link href="/company/press" className="text-muted-foreground hover:text-foreground transition-colors">
-                Press
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/company/privacy-policy"
-                className="text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Privacy Policy
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/company/terms-of-service"
-                className="text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Terms of Service
-              </Link>
+              <a href="/contact" className="hover:underline">
+                Contact
+              </a>
             </li>
           </ul>
         </div>
       </div>
-      <div className="container mt-8 border-t pt-8 text-center text-sm text-muted-foreground">
-        © 2025 Retail Bandhu. All rights reserved.
+      <div className="border-t py-4">
+        <div className="container mx-auto flex max-w-6xl items-center justify-between px-6 text-xs text-slate-500">
+          <span>© {new Date().getFullYear()} Retail Bandhu. All rights reserved.</span>
+          <span>Made with ❤️ in India</span>
+        </div>
       </div>
     </footer>
   )
