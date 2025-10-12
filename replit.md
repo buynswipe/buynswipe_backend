@@ -14,6 +14,14 @@ Retail Bandhu is a digital platform that connects small retailers, wholesalers, 
 
 ## Recent Changes
 
+**October 12, 2025 - Login & Dashboard Authentication Fixes:**
+- Fixed middleware to use NEXT_PUBLIC_ prefixed environment variables as fallback for Supabase configuration
+- Corrected dashboard role-based redirect logic by adding useEffect to execute checkUserRole function
+- Fixed /api/auth/status endpoint to return 200 status with authenticated: false instead of 401 (eliminates browser console errors)
+- Corrected delivery partner login redirect from incorrect /delivery/my-deliveries to /delivery-partner/dashboard
+- Verified all dashboard routes have proper authentication guards and no redirect loops
+- Complete login flow now works correctly for all user roles: admin, retailer, wholesaler, delivery_partner
+
 **October 2025 - Vercel to Replit Migration:**
 - Migrated Next.js application from Vercel to Replit platform
 - Fixed React compatibility issue (removed unsupported cache import from React 18.0.0)
