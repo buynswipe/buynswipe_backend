@@ -23,9 +23,9 @@ export async function middleware(req: NextRequest) {
     pathname.endsWith(".svg")
   if (isAsset) return res
 
-  // Use server-only env vars. Do NOT reference NEXT_PUBLIC_* here.
-  const supabaseUrl = process.env.SUPABASE_URL
-  const supabaseKey = process.env.SUPABASE_ANON_KEY
+  // Use server-only env vars. Try NEXT_PUBLIC_ prefixed vars as fallback
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
   // If server envs are not present, skip auth refresh and continue.
   if (!supabaseUrl || !supabaseKey) {
