@@ -17,18 +17,28 @@ export interface NotificationData {
   data?: any
 }
 
-// Create a Supabase client
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL || "", process.env.SUPABASE_SERVICE_ROLE_KEY || "", {
-  auth: {
-    persistSession: false,
-  },
-})
+// Helper to get Supabase client
+function getSupabaseClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
+
+  if (!supabaseUrl || !supabaseServiceKey) {
+    throw new Error("Missing Supabase configuration")
+  }
+
+  return createClient(supabaseUrl, supabaseServiceKey, {
+    auth: {
+      persistSession: false,
+    },
+  })
+}
 
 /**
  * Creates a notification in the database
  */
 export async function createServerNotification(data: NotificationData) {
   try {
+    const supabase = getSupabaseClient()
     // Validate required fields
     if (!data.user_id) {
       console.error("Error creating notification: user_id is required")

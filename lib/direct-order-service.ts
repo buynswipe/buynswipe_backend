@@ -5,7 +5,20 @@ import { logError } from "@/lib/debug-helpers"
  * Direct order service that uses the Supabase service role key for admin-level access
  */
 export class DirectOrderService {
-  private supabase = createClient(process.env.SUPABASE_URL || "", process.env.SUPABASE_SERVICE_ROLE_KEY || "")
+  private getSupabase() {
+    const supabaseUrl = process.env.SUPABASE_URL || ""
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error("Missing Supabase configuration")
+    }
+
+    return createClient(supabaseUrl, supabaseServiceKey)
+  }
+
+  private get supabase() {
+    return this.getSupabase()
+  }
 
   /**
    * Find an order by any identifier with admin privileges
