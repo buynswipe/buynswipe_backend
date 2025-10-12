@@ -12,6 +12,16 @@ Retail Bandhu is a digital platform that connects small retailers, wholesalers, 
 - Delivery Partners: Accept deliveries, track routes, collect payments, submit delivery proofs
 - Admins: User management, transaction monitoring, dispute resolution
 
+## Recent Changes
+
+**October 2025 - Vercel to Replit Migration:**
+- Migrated Next.js application from Vercel to Replit platform
+- Fixed React compatibility issue (removed unsupported cache import from React 18.0.0)
+- Configured development server: port 5000, host 0.0.0.0 for Replit environment
+- Set up autoscale deployment with pnpm build/start commands
+- Configured environment secrets via Replit Secrets system
+- All core functionality verified and working (auth, database, UI)
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
@@ -104,8 +114,10 @@ Preferred communication style: Simple, everyday language.
 - Lucide React for icons
 
 **Deployment:**
-- Vercel for hosting and serverless functions
-- Environment-based configuration
+- Replit for hosting and development (migrated from Vercel - October 2025)
+- Autoscale deployment configured with Next.js
+- Development server runs on port 5000 with 0.0.0.0 binding
+- Environment-based configuration via Replit Secrets
 - Edge middleware for performance
 
 **Notable Technical Decisions:**
