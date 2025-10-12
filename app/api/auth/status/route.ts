@@ -10,7 +10,7 @@ export async function GET() {
     } = await supabase.auth.getSession()
 
     if (!session) {
-      return NextResponse.json({ authenticated: false }, { status: 401 })
+      return NextResponse.json({ authenticated: false }, { status: 200 })
     }
 
     // Get user profile
