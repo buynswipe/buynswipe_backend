@@ -75,7 +75,7 @@ export default function LoginPage() {
 
       // Redirect based on role
       if (profile.role === "delivery_partner") {
-        router.push("/delivery/my-deliveries")
+        router.push("/delivery-partner/dashboard")
       } else {
         router.push("/dashboard")
       }
