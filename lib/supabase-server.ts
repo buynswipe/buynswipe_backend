@@ -1,13 +1,12 @@
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { createClient as createSupabaseClient } from "@supabase/supabase-js"
-import { cache } from "react"
 
 // Server-side client for server components only
-export const createServerSupabaseClient = cache(() => {
+export const createServerSupabaseClient = () => {
   const cookieStore = cookies()
   return createServerComponentClient({ cookies: () => cookieStore })
-})
+}
 
 // Service role client for server-side operations
 export const createServiceClient = () => {
