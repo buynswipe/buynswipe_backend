@@ -5,9 +5,9 @@
   "scripts": {
     "build": "next build",
     "clean": "bash scripts/clean-all.sh",
-    "dev": "next dev",
+    "dev": "next dev -p 5000 -H 0.0.0.0",
     "lint": "next lint",
-    "start": "next start"
+    "start": "next start -p 5000 -H 0.0.0.0"
   },
   "dependencies": {
     "@ai-sdk/openai": "latest",
