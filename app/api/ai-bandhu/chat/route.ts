@@ -1,94 +1,89 @@
-import { generateText } from "ai"
+import { streamText } from "ai"
 import { openai } from "@ai-sdk/openai"
 import { createClient } from "@supabase/supabase-js"
 import { type NextRequest, NextResponse } from "next/server"
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
-const rolePrompts = {
-  retailer: `You are Retail Bandhu, a helpful AI assistant for small retail store owners in India. You help with:
-- Order management and inventory tracking
-- Product pricing optimization
-- Sales strategies and customer retention
-- Understanding demand patterns
-- Payment and billing assistance
-Respond in the user's language (Hindi or English). Be conversational and practical.`,
+const systemPrompts = {
+  retailer: `You are Bandhu, an AI assistant for retail shop owners in India. You help with:
+- Inventory management and stock optimization
+- Order placement and supplier negotiations
+- Pricing strategies and margin analysis
+- Customer insights and seasonal trends
+- Cash flow management
+Be concise, practical, and speak in simple language. Provide actionable advice.`,
 
-  wholesaler: `You are Wholesale Bandhu, an AI business analyst for wholesalers and distributors in India. You help with:
-- Demand forecasting and inventory optimization
-- Retail partner management and performance tracking
-- Margin analysis and pricing strategy
-- Supply chain optimization
-- Market trend analysis
-Respond in the user's language (Hindi or English). Provide data-driven insights.`,
+  wholesaler: `You are Bandhu, an AI assistant for wholesale distributors in India. You help with:
+- Demand forecasting and inventory planning
+- Retailer relationship management
+- Pricing and margin optimization
+- Supply chain logistics
+- Payment and credit management
+Be analytical and data-driven in your recommendations.`,
 
-  delivery_partner: `You are Delivery Bandhu, an AI assistant for delivery partners and drivers in India. You help with:
-- Route optimization and delivery efficiency
-- Earnings tracking and performance metrics
-- Safety and best practices
-- Peak earning hours and busy areas
-- Vehicle maintenance tips
-Respond in the user's language (Hindi or English). Be supportive and practical.`,
+  delivery: `You are Bandhu, an AI assistant for delivery partners in India. You help with:
+- Route optimization for maximum earnings
+- Peak delivery hours and demand patterns
+- Performance tracking and ratings
+- Safety tips and best practices
+- Earnings calculation and payout schedules
+Be encouraging and focus on safety and efficiency.`,
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const { message, role, conversationHistory } = await request.json()
+    const body = await request.json()
+    const { message, role, language, conversationHistory, userId } = body
 
     if (!message || !role) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    // Detect language
-    const isHindi = /[\u0900-\u097F]/.test(message)
-    const detectedLanguage = isHindi ? "hi" : "en"
+    const systemPrompt = systemPrompts[role as keyof typeof systemPrompts] || systemPrompts.retailer
 
-    // Build conversation context
-    const conversationContext = (conversationHistory || [])
-      .map((msg: any) => `${msg.role === "user" ? "User" : "Assistant"}: ${msg.content}`)
-      .join("\n")
+    // Format conversation history for the AI
+    const messages = (conversationHistory || [])
+      .slice(-5) // Last 5 messages for context
+      .map((msg: any) => ({
+        role: msg.role,
+        content: msg.content,
+      }))
 
-    const systemPrompt = rolePrompts[role as keyof typeof rolePrompts] || rolePrompts.retailer
+    messages.push({ role: "user", content: message })
 
-    const fullPrompt = `${systemPrompt}
-
-Previous conversation:
-${conversationContext}
-
-User: ${message}
-
-Respond in ${isHindi ? "Hindi" : "English"} and keep responses concise (max 150 words).`
-
-    // Generate response using AI SDK
-    const { text } = await generateText({
+    // Use streamText for real-time response
+    const result = await streamText({
       model: openai("gpt-4o"),
-      prompt: fullPrompt,
-      maxTokens: 500,
+      system: systemPrompt,
+      messages: messages as any,
+      temperature: 0.7,
+      max_tokens: 500,
     })
 
-    // Save conversation to database
-    const userId = request.headers.get("x-user-id") || "anonymous"
+    // Collect the full response
+    let fullResponse = ""
+    for await (const chunk of result.fullStream) {
+      if (chunk.type === "text-delta") {
+        fullResponse += chunk.delta
+      }
+    }
 
-    await supabase.from("ai_conversations").insert({
-      user_id: userId,
-      role,
-      user_message: message,
-      assistant_response: text,
-      detected_language: detectedLanguage,
-      created_at: new Date().toISOString(),
-    })
+    // Save conversation if user is logged in
+    if (userId) {
+      await supabase.from("ai_conversations").insert({
+        user_id: userId,
+        role,
+        language,
+        user_message: message,
+        assistant_message: fullResponse,
+        created_at: new Date().toISOString(),
+      })
+    }
 
-    // Detect response language
-    const responseIsHindi = /[\u0900-\u097F]/.test(text)
-    const responseLanguage = responseIsHindi ? "hi" : "en"
-
-    return NextResponse.json({
-      message: text,
-      language: responseLanguage,
-      role,
-    })
+    return NextResponse.json({ message: fullResponse })
   } catch (error) {
     console.error("Chat API error:", error)
-    return NextResponse.json({ error: "Failed to generate response" }, { status: 500 })
+    return NextResponse.json({ error: "Failed to process message" }, { status: 500 })
   }
 }

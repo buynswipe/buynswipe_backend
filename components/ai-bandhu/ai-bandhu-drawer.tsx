@@ -1,12 +1,14 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
-import { X, Send, Mic, Volume2, Copy, Check } from "lucide-react"
+import { useState, useRef, useEffect } from "react"
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { cn } from "@/lib/utils"
+import { Loader2, Send, Mic, Copy, Volume2, VolumeX, MicOff } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 interface Message {
   id: string
@@ -17,71 +19,97 @@ interface Message {
 }
 
 interface AIBandhuDrawerProps {
-  role: "retailer" | "wholesaler" | "delivery_partner"
+  isOpen: boolean
   onClose: () => void
 }
 
-export function AIBandhuDrawer({ role, onClose }: AIBandhuDrawerProps) {
+export function AIBandhuDrawer({ isOpen, onClose }: AIBandhuDrawerProps) {
   const [messages, setMessages] = useState<Message[]>([])
-  const [input, setInput] = useState("")
+  const [inputValue, setInputValue] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [isListening, setIsListening] = useState(false)
+  const [userRole, setUserRole] = useState<"retailer" | "wholesaler" | "delivery">("retailer")
+  const [language, setLanguage] = useState<"hi" | "en">("en")
   const [isSpeaking, setIsSpeaking] = useState(false)
-  const [copiedId, setCopiedId] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const recognitionRef = useRef<any>(null)
+  const { toast } = useToast()
 
-  const roleConfig = {
-    retailer: { title: "बंधु खुदरा | Retail Bandhu", subtitle: "आपका डिजिटल सहायक | Your Digital Assistant" },
-    wholesaler: { title: "बंधु थोक | Wholesale Bandhu", subtitle: "व्यावसायिक विश्लेषण | Business Analytics" },
-    delivery_partner: { title: "बंधु डिलीवरी | Delivery Bandhu", subtitle: "मार्ग अनुकूल | Route Optimizer" },
-  }
-
-  const config = roleConfig[role]
-
-  // Initialize Web Speech API
   useEffect(() => {
-    const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition
-    if (SpeechRecognition) {
-      recognitionRef.current = new SpeechRecognition()
-      recognitionRef.current.continuous = false
-      recognitionRef.current.interimResults = true
-      recognitionRef.current.lang = "hi-IN"
-
-      recognitionRef.current.onstart = () => setIsListening(true)
-      recognitionRef.current.onend = () => setIsListening(false)
-      recognitionRef.current.onresult = (event: any) => {
-        let transcript = ""
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          transcript += event.results[i][0].transcript
-        }
-        if (event.results[0].isFinal) {
-          setInput(transcript)
+    if (typeof window !== "undefined") {
+      const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition
+      if (SpeechRecognition) {
+        recognitionRef.current = new SpeechRecognition()
+        recognitionRef.current.language = language === "hi" ? "hi-IN" : "en-US"
+        recognitionRef.current.onresult = (event: any) => {
+          const transcript = Array.from(event.results)
+            .map((result: any) => result[0].transcript)
+            .join("")
+          setInputValue((prev) => prev + " " + transcript)
         }
       }
     }
-  }, [])
+  }, [language])
 
-  // Auto-scroll to bottom
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollIntoView({ behavior: "smooth" })
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
   }, [messages])
 
+  const startListening = () => {
+    if (!recognitionRef.current) {
+      toast({
+        title: "Speech Recognition Not Available",
+        description: "Please use a modern browser for voice input.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsListening(true)
+    recognitionRef.current.start()
+  }
+
+  const stopListening = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop()
+    }
+    setIsListening(false)
+  }
+
+  const speak = (text: string) => {
+    if (!("speechSynthesis" in window)) {
+      toast({
+        title: "Text-to-Speech Not Available",
+        description: "Your browser does not support text-to-speech.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    window.speechSynthesis.cancel()
+    const utterance = new SpeechSynthesisUtterance(text)
+    utterance.language = language === "hi" ? "hi-IN" : "en-US"
+    utterance.rate = 0.9
+    utterance.onstart = () => setIsSpeaking(true)
+    utterance.onend = () => setIsSpeaking(false)
+    window.speechSynthesis.speak(utterance)
+  }
+
   const handleSendMessage = async () => {
-    if (!input.trim()) return
+    if (!inputValue.trim()) return
 
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: Math.random().toString(),
       role: "user",
-      content: input,
-      language: /[\u0900-\u097F]/.test(input) ? "hi" : "en",
+      content: inputValue,
+      language,
       timestamp: new Date(),
     }
 
     setMessages((prev) => [...prev, userMessage])
-    setInput("")
+    setInputValue("")
     setIsLoading(true)
 
     try {
@@ -89,8 +117,9 @@ export function AIBandhuDrawer({ role, onClose }: AIBandhuDrawerProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: input,
-          role,
+          message: inputValue,
+          role: userRole,
+          language,
           conversationHistory: messages,
         }),
       })
@@ -98,173 +127,177 @@ export function AIBandhuDrawer({ role, onClose }: AIBandhuDrawerProps) {
       if (!response.ok) throw new Error("Failed to get response")
 
       const data = await response.json()
-
       const assistantMessage: Message = {
-        id: Date.now().toString(),
+        id: Math.random().toString(),
         role: "assistant",
         content: data.message,
-        language: data.language || "en",
+        language,
         timestamp: new Date(),
       }
 
       setMessages((prev) => [...prev, assistantMessage])
 
       // Auto-speak response
-      if ("speechSynthesis" in window) {
-        const utterance = new SpeechSynthesisUtterance(data.message)
-        utterance.lang = data.language === "hi" ? "hi-IN" : "en-IN"
-        utterance.onstart = () => setIsSpeaking(true)
-        utterance.onend = () => setIsSpeaking(false)
-        window.speechSynthesis.speak(utterance)
+      if (language === "hi") {
+        speak(data.message)
       }
     } catch (error) {
-      console.error("Chat error:", error)
-      const errorMessage: Message = {
-        id: Date.now().toString(),
-        role: "assistant",
-        content: "माफी चाहता हूं, कुछ गलत हुआ। Please try again. | I apologize, something went wrong.",
-        language: "en",
-        timestamp: new Date(),
-      }
-      setMessages((prev) => [...prev, errorMessage])
+      toast({
+        title: "Error",
+        description: "Failed to get response. Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setIsLoading(false)
     }
   }
 
-  const toggleListening = () => {
-    if (recognitionRef.current) {
-      if (isListening) {
-        recognitionRef.current.stop()
-      } else {
-        recognitionRef.current.start()
-      }
-    }
+  const copyMessage = (text: string) => {
+    navigator.clipboard.writeText(text)
+    toast({
+      title: "Copied",
+      description: "Message copied to clipboard.",
+    })
   }
 
-  const copyMessage = (id: string, content: string) => {
-    navigator.clipboard.writeText(content)
-    setCopiedId(id)
-    setTimeout(() => setCopiedId(null), 2000)
-  }
-
-  const stopSpeaking = () => {
-    window.speechSynthesis.cancel()
-    setIsSpeaking(false)
+  const clearHistory = () => {
+    setMessages([])
+    toast({
+      title: "History Cleared",
+      description: "Chat history has been cleared.",
+    })
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-end sm:justify-center p-4">
-      <Card className="w-full max-w-md h-[600px] flex flex-col shadow-xl">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-500 text-white p-4 flex items-center justify-between rounded-t-lg">
-          <div>
-            <h2 className="font-bold text-lg">{config.title}</h2>
-            <p className="text-sm opacity-90">{config.subtitle}</p>
-          </div>
-          <Button variant="ghost" size="icon" onClick={onClose} className="text-white hover:bg-blue-700">
-            <X className="w-5 h-5" />
-          </Button>
-        </div>
-
-        {/* Messages */}
-        <ScrollArea className="flex-1 p-4 space-y-4">
-          {messages.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-center text-gray-500">
-              <div>
-                <p className="font-semibold mb-2">नमस्ते 👋 | Hello!</p>
-                <p className="text-sm">मुझसे कोई भी सवाल पूछें | Ask me anything!</p>
-              </div>
+    <Drawer open={isOpen} onOpenChange={onClose}>
+      <DrawerContent className="h-[90vh] max-w-2xl mx-auto">
+        <DrawerHeader className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <DrawerTitle>Bandhu AI Assistant</DrawerTitle>
+              <p className="text-sm text-slate-500 mt-1">Your personal business advisor</p>
             </div>
-          ) : (
-            <>
-              {messages.map((msg) => (
-                <div key={msg.id} className={cn("flex gap-3", msg.role === "user" ? "justify-end" : "justify-start")}>
-                  <div
-                    className={cn(
-                      "max-w-xs px-4 py-2 rounded-lg",
-                      msg.role === "user"
-                        ? "bg-blue-600 text-white rounded-br-none"
-                        : "bg-gray-100 text-gray-900 rounded-bl-none",
-                    )}
-                  >
-                    <p className="text-sm">{msg.content}</p>
-                    {msg.role === "assistant" && (
-                      <div className="flex gap-2 mt-2 pt-2 border-t border-gray-300">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-6 w-6 p-0"
-                          onClick={() => copyMessage(msg.id, msg.content)}
-                        >
-                          {copiedId === msg.id ? (
-                            <Check className="w-4 h-4 text-green-600" />
-                          ) : (
-                            <Copy className="w-4 h-4" />
-                          )}
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-              {isLoading && (
-                <div className="flex gap-2">
-                  <div className="bg-gray-100 rounded-lg px-4 py-2">
-                    <div className="flex gap-1">
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-100" />
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-200" />
-                    </div>
-                  </div>
-                </div>
-              )}
-              <div ref={scrollRef} />
-            </>
-          )}
-        </ScrollArea>
-
-        {/* Input Area */}
-        <div className="border-t p-4 space-y-3">
-          {isSpeaking && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={stopSpeaking}
-              className="w-full text-red-600 border-red-600 bg-transparent"
-            >
-              <Volume2 className="w-4 h-4 mr-2" />
-              रोकें | Stop Speaking
-            </Button>
-          )}
-          <div className="flex gap-2">
-            <Input
-              placeholder="संदेश लिखें... | Type message..."
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
-              disabled={isLoading}
-              className="flex-1"
-            />
-            <Button
-              size="icon"
-              variant={isListening ? "destructive" : "outline"}
-              onClick={toggleListening}
-              disabled={isLoading}
-            >
-              <Mic className="w-4 h-4" />
-            </Button>
-            <Button
-              size="icon"
-              onClick={handleSendMessage}
-              disabled={isLoading || !input.trim()}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              <Send className="w-4 h-4" />
-            </Button>
           </div>
-        </div>
-      </Card>
-    </div>
+
+          <Tabs defaultValue="chat" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="chat">Chat</TabsTrigger>
+              <TabsTrigger value="settings">Settings</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="settings" className="space-y-4 mt-4">
+              <div>
+                <label className="text-sm font-medium">Role</label>
+                <div className="flex gap-2 mt-2">
+                  {(["retailer", "wholesaler", "delivery"] as const).map((role) => (
+                    <Button
+                      key={role}
+                      variant={userRole === role ? "default" : "outline"}
+                      onClick={() => setUserRole(role)}
+                      className="capitalize"
+                    >
+                      {role}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Language</label>
+                <div className="flex gap-2 mt-2">
+                  {(["en", "hi"] as const).map((lang) => (
+                    <Button
+                      key={lang}
+                      variant={language === lang ? "default" : "outline"}
+                      onClick={() => setLanguage(lang)}
+                    >
+                      {lang === "en" ? "English" : "हिंदी"}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              <Button onClick={clearHistory} variant="destructive" className="w-full">
+                Clear History
+              </Button>
+            </TabsContent>
+
+            <TabsContent value="chat" className="space-y-4">
+              <ScrollArea className="h-[400px] pr-4" ref={scrollRef}>
+                <div className="space-y-4">
+                  {messages.length === 0 ? (
+                    <div className="flex items-center justify-center h-full text-slate-500">
+                      <p>Start a conversation with Bandhu AI</p>
+                    </div>
+                  ) : (
+                    messages.map((msg) => (
+                      <Card
+                        key={msg.id}
+                        className={`p-3 ${msg.role === "user" ? "bg-orange-50 ml-8" : "bg-slate-50 mr-8"}`}
+                      >
+                        <div className="flex justify-between items-start gap-2">
+                          <div className="flex-1">
+                            <p className="text-xs font-medium text-slate-600 mb-1">
+                              {msg.role === "user" ? "You" : "Bandhu"}
+                            </p>
+                            <p className="text-sm text-slate-900">{msg.content}</p>
+                          </div>
+                          <div className="flex gap-1">
+                            {msg.role === "assistant" && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => speak(msg.content)}
+                                className="h-6 w-6 p-0"
+                              >
+                                {isSpeaking ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                              </Button>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => copyMessage(msg.content)}
+                              className="h-6 w-6 p-0"
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </Card>
+                    ))
+                  )}
+                  {isLoading && (
+                    <div className="flex items-center justify-center">
+                      <Loader2 className="h-5 w-5 animate-spin text-orange-500" />
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+
+              <div className="flex gap-2">
+                <Input
+                  placeholder={language === "hi" ? "संदेश भेजें..." : "Type a message..."}
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
+                  disabled={isLoading}
+                />
+                <Button
+                  onClick={isListening ? stopListening : startListening}
+                  variant={isListening ? "destructive" : "outline"}
+                  size="icon"
+                  disabled={isLoading}
+                >
+                  {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                </Button>
+                <Button onClick={handleSendMessage} disabled={isLoading || !inputValue.trim()} size="icon">
+                  {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                </Button>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </DrawerHeader>
+      </DrawerContent>
+    </Drawer>
   )
 }

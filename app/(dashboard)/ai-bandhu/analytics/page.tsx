@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState, useEffect } from "react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   LineChart,
   Line,
@@ -16,171 +17,132 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts"
-import { TrendingUp, MessageSquare, Target, Award } from "lucide-react"
-import { createClient } from "@supabase/supabase-js"
+import { Loader2 } from "lucide-react"
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+interface Analytics {
+  conversationCount: number
+  totalMessages: number
+  avgSentiment: string
+  languageBreakdown: { language: string; count: number }[]
+  roleDistribution: { role: string; count: number }[]
+  dailyTrends: { date: string; conversations: number }[]
+  recommendationTypes: { type: string; count: number }[]
+}
 
-const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444"]
-
-export default function AIBandhuAnalytics() {
-  const [conversationTrends, setConversationTrends] = useState<any[]>([])
-  const [roleDistribution, setRoleDistribution] = useState<any[]>([])
-  const [languageStats, setLanguageStats] = useState<any[]>([])
-  const [metrics, setMetrics] = useState({
-    totalConversations: 0,
-    averageResponseTime: 0,
-    hindiUsage: 0,
-    topRole: "",
-  })
+export default function AnalyticsDashboard() {
+  const [analytics, setAnalytics] = useState<Analytics | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [timeframe, setTimeframe] = useState<"7d" | "30d">("7d")
 
   useEffect(() => {
-    fetchAnalytics()
-  }, [])
-
-  async function fetchAnalytics() {
-    try {
-      // Get last 7 days of conversations
-      const sevenDaysAgo = new Date()
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-
-      const { data: conversations, error } = await supabase
-        .from("ai_conversations")
-        .select("*")
-        .gte("created_at", sevenDaysAgo.toISOString())
-
-      if (error) throw error
-
-      // Process conversation trends
-      const trendMap: Record<string, number> = {}
-      const roleMap: Record<string, number> = {}
-      let hindiCount = 0
-      const totalCount = conversations?.length || 0
-
-      conversations?.forEach((conv) => {
-        const date = new Date(conv.created_at).toLocaleDateString()
-        trendMap[date] = (trendMap[date] || 0) + 1
-        roleMap[conv.role] = (roleMap[conv.role] || 0) + 1
-        if (conv.detected_language === "hi") hindiCount++
-      })
-
-      const trends = Object.entries(trendMap).map(([date, count]) => ({
-        date,
-        conversations: count,
-      }))
-
-      const roleData = Object.entries(roleMap).map(([role, count]) => ({
-        name: role.charAt(0).toUpperCase() + role.slice(1),
-        value: count,
-      }))
-
-      const languageData = [
-        { name: "Hindi", value: hindiCount },
-        { name: "English", value: totalCount - hindiCount },
-      ]
-
-      setConversationTrends(trends)
-      setRoleDistribution(roleData)
-      setLanguageStats(languageData)
-
-      const topRole = Object.entries(roleMap).sort((a, b) => b[1] - a[1])[0]?.[0] || "retailer"
-
-      setMetrics({
-        totalConversations: totalCount,
-        averageResponseTime: 1.2, // Mock value
-        hindiUsage: totalCount > 0 ? Math.round((hindiCount / totalCount) * 100) : 0,
-        topRole: topRole.charAt(0).toUpperCase() + topRole.slice(1),
-      })
-
-      setIsLoading(false)
-    } catch (error) {
-      console.error("Analytics error:", error)
-      setIsLoading(false)
+    const fetchAnalytics = async () => {
+      try {
+        setIsLoading(true)
+        const response = await fetch(`/api/ai-bandhu/analytics?timeframe=${timeframe}`)
+        if (response.ok) {
+          const data = await response.json()
+          setAnalytics(data)
+        }
+      } catch (error) {
+        console.error("Failed to fetch analytics:", error)
+      } finally {
+        setIsLoading(false)
+      }
     }
-  }
+
+    fetchAnalytics()
+  }, [timeframe])
 
   if (isLoading) {
-    return <div className="p-8 text-center">लोड हो रहा है... | Loading...</div>
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+      </div>
+    )
   }
 
+  if (!analytics) {
+    return <div className="p-6 text-center">Failed to load analytics</div>
+  }
+
+  const COLORS = ["#f97316", "#fb923c", "#fdba74", "#fcd34d", "#fef3c7"]
+
   return (
-    <div className="space-y-8 p-8">
-      <div>
-        <h1 className="text-3xl font-bold">AI Bandhu Analytics</h1>
-        <p className="text-gray-600">आपके AI सहायक का विश्लेषण | AI Assistant Performance</p>
+    <div className="space-y-6 p-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold">AI Bandhu Analytics</h1>
+          <p className="text-slate-600 mt-1">Track AI assistant performance and usage</p>
+        </div>
+        <Tabs value={timeframe} onValueChange={(v) => setTimeframe(v as "7d" | "30d")}>
+          <TabsList>
+            <TabsTrigger value="7d">Last 7 Days</TabsTrigger>
+            <TabsTrigger value="30d">Last 30 Days</TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
-      {/* Metrics Cards */}
+      {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
-              <MessageSquare className="w-4 h-4" />
-              कुल बातचीत | Total Conversations
-            </CardTitle>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-slate-600">Conversations</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{metrics.totalConversations}</div>
-            <p className="text-xs text-gray-500 mt-1">पिछले 7 दिनों में | Last 7 days</p>
+            <div className="text-3xl font-bold">{analytics.conversationCount}</div>
+            <p className="text-xs text-slate-500 mt-1">Total conversations</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
-              <TrendingUp className="w-4 h-4" />
-              हिंदी उपयोग | Hindi Usage
-            </CardTitle>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-slate-600">Messages</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{metrics.hindiUsage}%</div>
-            <p className="text-xs text-gray-500 mt-1">सभी बातचीत | All conversations</p>
+            <div className="text-3xl font-bold">{analytics.totalMessages}</div>
+            <p className="text-xs text-slate-500 mt-1">Total messages sent</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
-              <Award className="w-4 h-4" />
-              शीर्ष भूमिका | Top Role
-            </CardTitle>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-slate-600">Avg Sentiment</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{metrics.topRole}</div>
-            <p className="text-xs text-gray-500 mt-1">सबसे सक्रिय | Most active</p>
+            <div className="text-3xl font-bold">{analytics.avgSentiment}</div>
+            <p className="text-xs text-slate-500 mt-1">User satisfaction</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
-              <Target className="w-4 h-4" />
-              औसत प्रतिक्रिया | Avg Response
-            </CardTitle>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-slate-600">Avg Messages/Conv</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{metrics.averageResponseTime}s</div>
-            <p className="text-xs text-gray-500 mt-1">प्रति संदेश | Per message</p>
+            <div className="text-3xl font-bold">
+              {(analytics.totalMessages / analytics.conversationCount).toFixed(1)}
+            </div>
+            <p className="text-xs text-slate-500 mt-1">Engagement depth</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Conversation Trends */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Daily Trends */}
         <Card>
           <CardHeader>
-            <CardTitle>बातचीत की प्रवृत्ति | Conversation Trends</CardTitle>
+            <CardTitle>Conversation Trends</CardTitle>
+            <CardDescription>Daily conversations over time</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={conversationTrends}>
+              <LineChart data={analytics.dailyTrends}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" />
                 <YAxis />
                 <Tooltip />
-                <Line type="monotone" dataKey="conversations" stroke="#3b82f6" strokeWidth={2} />
+                <Line type="monotone" dataKey="conversations" stroke="#f97316" strokeWidth={2} />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
@@ -189,22 +151,23 @@ export default function AIBandhuAnalytics() {
         {/* Role Distribution */}
         <Card>
           <CardHeader>
-            <CardTitle>भूमिका वितरण | Role Distribution</CardTitle>
+            <CardTitle>Role Distribution</CardTitle>
+            <CardDescription>Conversations by user role</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
-                  data={roleDistribution}
+                  data={analytics.roleDistribution}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ name, value }) => `${name}: ${value}`}
+                  label={({ role, count }) => `${role}: ${count}`}
                   outerRadius={80}
                   fill="#8884d8"
-                  dataKey="value"
+                  dataKey="count"
                 >
-                  {roleDistribution.map((entry, index) => (
+                  {analytics.roleDistribution.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
@@ -213,25 +176,54 @@ export default function AIBandhuAnalytics() {
             </ResponsiveContainer>
           </CardContent>
         </Card>
-      </div>
 
-      {/* Language Stats */}
-      <Card>
-        <CardHeader>
-          <CardTitle>भाषा सांख्यिकी | Language Statistics</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={languageStats}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="value" fill="#3b82f6" />
-            </BarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
+        {/* Language Breakdown */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Language Preference</CardTitle>
+            <CardDescription>Hindi vs English usage</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={analytics.languageBreakdown}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="language" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="count" fill="#f97316" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* Recommendation Types */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Recommendation Types</CardTitle>
+            <CardDescription>Most requested assistance types</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {analytics.recommendationTypes.map((rec) => (
+                <div key={rec.type} className="flex justify-between items-center">
+                  <span className="text-sm font-medium">{rec.type}</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-32 bg-slate-200 rounded-full h-2">
+                      <div
+                        className="bg-orange-500 h-2 rounded-full"
+                        style={{
+                          width: `${(rec.count / Math.max(...analytics.recommendationTypes.map((r) => r.count))) * 100}%`,
+                        }}
+                      />
+                    </div>
+                    <span className="text-sm font-semibold w-8">{rec.count}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

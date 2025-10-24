@@ -1,71 +1,67 @@
--- AI Conversations table
+-- AI Conversations Table
 CREATE TABLE IF NOT EXISTS ai_conversations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id TEXT NOT NULL,
-  role TEXT NOT NULL CHECK (role IN ('retailer', 'wholesaler', 'delivery_partner')),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('retailer', 'wholesaler', 'delivery')),
+  language TEXT NOT NULL CHECK (language IN ('en', 'hi')),
   user_message TEXT NOT NULL,
-  assistant_response TEXT NOT NULL,
-  detected_language TEXT CHECK (detected_language IN ('hi', 'en')),
-  sentiment TEXT CHECK (sentiment IN ('positive', 'neutral', 'negative')),
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
+  assistant_message TEXT NOT NULL,
+  sentiment TEXT DEFAULT 'neutral' CHECK (sentiment IN ('positive', 'neutral', 'negative')),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- AI Recommendations Table
+CREATE TABLE IF NOT EXISTS ai_recommendations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('retailer', 'wholesaler', 'delivery')),
+  recommendation_type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL,
+  priority TEXT DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high')),
+  action_url TEXT,
+  clicked BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  expires_at TIMESTAMP WITH TIME ZONE
+);
+
+-- Push Subscriptions Table
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  endpoint TEXT NOT NULL UNIQUE,
+  auth_key TEXT NOT NULL,
+  p256dh_key TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create indexes
 CREATE INDEX idx_ai_conversations_user_id ON ai_conversations(user_id);
 CREATE INDEX idx_ai_conversations_role ON ai_conversations(role);
-CREATE INDEX idx_ai_conversations_created_at ON ai_conversations(created_at DESC);
-
--- AB Testing experiments table
-CREATE TABLE IF NOT EXISTS ab_experiments (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL UNIQUE,
-  description TEXT,
-  variant_a_name TEXT NOT NULL,
-  variant_b_name TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'paused', 'completed')),
-  weight_a DECIMAL(3,2) DEFAULT 0.5,
-  weight_b DECIMAL(3,2) DEFAULT 0.5,
-  created_at TIMESTAMP DEFAULT NOW(),
-  ends_at TIMESTAMP,
-  created_by TEXT
-);
-
--- AB Test assignments
-CREATE TABLE IF NOT EXISTS ab_test_assignments (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  experiment_id UUID NOT NULL REFERENCES ab_experiments(id),
-  user_id TEXT NOT NULL,
-  assigned_variant TEXT NOT NULL CHECK (assigned_variant IN ('a', 'b')),
-  created_at TIMESTAMP DEFAULT NOW()
-);
-
-CREATE INDEX idx_ab_test_assignments_experiment_id ON ab_test_assignments(experiment_id);
-CREATE INDEX idx_ab_test_assignments_user_id ON ab_test_assignments(user_id);
-
--- AB Test events (conversions)
-CREATE TABLE IF NOT EXISTS ab_test_events (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  experiment_id UUID NOT NULL REFERENCES ab_experiments(id),
-  user_id TEXT NOT NULL,
-  event_type TEXT NOT NULL,
-  event_value DECIMAL(10,2),
-  created_at TIMESTAMP DEFAULT NOW()
-);
-
-CREATE INDEX idx_ab_test_events_experiment_id ON ab_test_events(experiment_id);
-CREATE INDEX idx_ab_test_events_user_id ON ab_test_events(user_id);
+CREATE INDEX idx_ai_conversations_created_at ON ai_conversations(created_at);
+CREATE INDEX idx_ai_recommendations_user_id ON ai_recommendations(user_id);
+CREATE INDEX idx_ai_recommendations_expires_at ON ai_recommendations(expires_at);
+CREATE INDEX idx_push_subscriptions_user_id ON push_subscriptions(user_id);
 
 -- Enable RLS
 ALTER TABLE ai_conversations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ab_experiments ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ab_test_assignments ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ab_test_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ai_recommendations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies
 CREATE POLICY "Users can view their own conversations"
   ON ai_conversations FOR SELECT
-  USING (user_id = current_user_id());
+  USING (auth.uid() = user_id);
 
-CREATE POLICY "Admins can view all experiments"
-  ON ab_experiments FOR SELECT
-  USING (auth.jwt() ->> 'role' = 'admin');
+CREATE POLICY "Users can insert their own conversations"
+  ON ai_conversations FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can view their own recommendations"
+  ON ai_recommendations FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can manage their own push subscriptions"
+  ON push_subscriptions FOR ALL
+  USING (auth.uid() = user_id);

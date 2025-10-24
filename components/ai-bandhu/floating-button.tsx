@@ -1,42 +1,49 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
+import { Button } from "@/components/ui/button"
 import { MessageCircle } from "lucide-react"
 import { AIBandhuDrawer } from "./ai-bandhu-drawer"
 
-interface FloatingButtonProps {
-  role: "retailer" | "wholesaler" | "delivery_partner"
-}
-
-export function AIBandhuFloatingButton({ role }: FloatingButtonProps) {
+export function AIBandhuFloatingButton() {
   const [isOpen, setIsOpen] = useState(false)
+  const [isListening, setIsListening] = useState(false)
+  const recognitionRef = useRef<any>(null)
 
-  const roleConfig = {
-    retailer: { bg: "bg-blue-600", hover: "hover:bg-blue-700", label: "ऑर्डर करें | Order Now" },
-    wholesaler: { bg: "bg-green-600", hover: "hover:bg-green-700", label: "विश्लेषण | Analyze" },
-    delivery_partner: { bg: "bg-purple-600", hover: "hover:bg-purple-700", label: "रूट | Route" },
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition
+      if (SpeechRecognition) {
+        recognitionRef.current = new SpeechRecognition()
+      }
+    }
+  }, [])
+
+  const toggleListening = () => {
+    if (!recognitionRef.current) return
+
+    if (isListening) {
+      recognitionRef.current.stop()
+      setIsListening(false)
+    } else {
+      recognitionRef.current.start()
+      setIsListening(true)
+    }
   }
-
-  const config = roleConfig[role]
 
   return (
     <>
-      {/* Floating Button */}
-      <button
+      <Button
         onClick={() => setIsOpen(true)}
-        className={`fixed bottom-6 right-6 ${config.bg} ${config.hover} text-white rounded-full shadow-lg p-4 transition-all hover:shadow-xl z-40 group`}
-        aria-label="AI Bandhu Assistant"
+        className="fixed bottom-8 right-8 h-14 w-14 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 shadow-lg z-40"
+        size="icon"
       >
-        <MessageCircle className="w-6 h-6" />
-        <div className="absolute bottom-20 right-0 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-900 text-white text-sm px-3 py-2 rounded-lg whitespace-nowrap">
-          {config.label}
-        </div>
-      </button>
+        <MessageCircle className="h-6 w-6" />
+      </Button>
 
-      {/* Drawer */}
-      {isOpen && <AIBandhuDrawer role={role} onClose={() => setIsOpen(false)} />}
+      <AIBandhuDrawer isOpen={isOpen} onClose={() => setIsOpen(false)} />
     </>
   )
 }
 
-export const AIBandhuButton = AIBandhuFloatingButton
+export { AIBandhuDrawer }
