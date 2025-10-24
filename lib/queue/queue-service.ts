@@ -5,21 +5,12 @@ import { createClient } from "@supabase/supabase-js"
 import { v4 as uuidv4 } from "uuid"
 import type { QueueMessage, QueueMessageType } from "./types"
 
-// Helper to get Supabase client
-function getSupabaseClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
-
-  if (!supabaseUrl || !supabaseServiceKey) {
-    throw new Error("Missing Supabase configuration")
-  }
-
-  return createClient(supabaseUrl, supabaseServiceKey, {
-    auth: {
-      persistSession: false,
-    },
-  })
-}
+// Create a Supabase client for queue operations
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL || "", process.env.SUPABASE_SERVICE_ROLE_KEY || "", {
+  auth: {
+    persistSession: false,
+  },
+})
 
 /**
  * Queue service for handling asynchronous operations
@@ -31,7 +22,7 @@ export class QueueService {
   static async initialize(): Promise<{ success: boolean; error?: string }> {
     try {
       // Check if the message_queue table exists
-      const { error: checkError } = await getSupabaseClient().from("message_queue").select("id").limit(1).single()
+      const { error: checkError } = await supabase.from("message_queue").select("id").limit(1).single()
 
       // If the table exists, we're good
       if (!checkError || checkError.code !== "PGRST116") {
@@ -39,7 +30,7 @@ export class QueueService {
       }
 
       // Create the message_queue table
-      const { error } = await getSupabaseClient().sql`
+      const { error } = await supabase.sql`
         CREATE TABLE IF NOT EXISTS public.message_queue (
           id UUID PRIMARY KEY,
           type TEXT NOT NULL,
@@ -65,7 +56,7 @@ export class QueueService {
       }
 
       // Create the processed_messages table for deduplication
-      const { error: dedupError } = await getSupabaseClient().sql`
+      const { error: dedupError } = await supabase.sql`
         CREATE TABLE IF NOT EXISTS public.processed_messages (
           deduplication_id TEXT PRIMARY KEY,
           message_id UUID NOT NULL,
@@ -137,7 +128,7 @@ export class QueueService {
       }
 
       // Insert the message into the queue
-      const { error } = await getSupabaseClient().from("message_queue").insert({
+      const { error } = await supabase.from("message_queue").insert({
         id: message.id,
         type: message.type,
         payload: message.payload,
@@ -152,7 +143,7 @@ export class QueueService {
 
       // If deduplication is enabled, record the message
       if (deduplicationId) {
-        await getSupabaseClient().from("processed_messages").insert({
+        await supabase.from("processed_messages").insert({
           deduplication_id: deduplicationId,
           message_id: messageId,
         })
@@ -185,14 +176,14 @@ export class QueueService {
 
     try {
       // Begin a transaction
-      const { error: txError } = await getSupabaseClient().rpc("begin_transaction")
+      const { error: txError } = await supabase.rpc("begin_transaction")
       if (txError) {
         console.error("Error beginning transaction:", txError)
         return { success: false, processedCount: 0, error: txError.message }
       }
 
       // Get and lock the next batch of messages
-      let query = getSupabaseClient()
+      let query = supabase
         .from("message_queue")
         .select("*")
         .eq("status", "pending")
@@ -209,13 +200,13 @@ export class QueueService {
       const { data: messages, error: fetchError } = await query
 
       if (fetchError) {
-        await getSupabaseClient().rpc("rollback_transaction")
+        await supabase.rpc("rollback_transaction")
         console.error("Error fetching messages:", fetchError)
         return { success: false, processedCount: 0, error: fetchError.message }
       }
 
       if (!messages || messages.length === 0) {
-        await getSupabaseClient().rpc("commit_transaction")
+        await supabase.rpc("commit_transaction")
         return { success: true, processedCount: 0 }
       }
 
@@ -232,12 +223,12 @@ export class QueueService {
         .in("id", messageIds)
 
       if (lockError) {
-        await getSupabaseClient().rpc("rollback_transaction")
+        await supabase.rpc("rollback_transaction")
         console.error("Error locking messages:", lockError)
         return { success: false, processedCount: 0, error: lockError.message }
       }
 
-      await getSupabaseClient().rpc("commit_transaction")
+      await supabase.rpc("commit_transaction")
 
       // Process each message
       let processedCount = 0
@@ -375,7 +366,7 @@ export class QueueService {
       const { userId, title, message, type, entityType, entityId, actionUrl, data } = payload
 
       // Create the notification
-      const { error } = await getSupabaseClient().from("notifications").insert({
+      const { error } = await supabase.from("notifications").insert({
         id: uuidv4(),
         user_id: userId,
         title,

@@ -41,7 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session.user)
 
         // Get user profile
-        const { data: profileData } = await supabase.from("profiles").select("*").eq("id", session.user.id).maybeSingle()
+        const { data: profileData } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
 
         setProfile(profileData)
       } else {
@@ -60,22 +60,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     refreshUser()
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      (async () => {
-        if (session) {
-          setUser(session.user)
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session) {
+        setUser(session.user)
 
-          // Get user profile
-          const { data: profileData } = await supabase.from("profiles").select("*").eq("id", session.user.id).maybeSingle()
+        // Get user profile
+        const { data: profileData } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
 
-          setProfile(profileData)
-        } else {
-          setUser(null)
-          setProfile(null)
-        }
-        setLoading(false)
-        router.refresh()
-      })()
+        setProfile(profileData)
+      } else {
+        setUser(null)
+        setProfile(null)
+      }
+      setLoading(false)
+      router.refresh()
     })
 
     return () => {

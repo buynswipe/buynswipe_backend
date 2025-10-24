@@ -3,21 +3,22 @@ import dotenv from "dotenv"
 
 dotenv.config()
 
+// Get environment variables
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  console.error("Missing required environment variables")
+  process.exit(1)
+}
+
+// Initialize Supabase client with service role key
+const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
 export async function seedChatResponses() {
   console.log("Seeding suggested chat responses...")
 
   try {
-    // Get environment variables
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-    if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error("Missing required environment variables")
-    }
-
-    // Initialize Supabase client with service role key
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
-
     // Check if the table exists
     const { error: checkError } = await supabase.from("chat_suggested_responses").select("id").limit(1).maybeSingle()
 
