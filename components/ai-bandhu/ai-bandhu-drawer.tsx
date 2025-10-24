@@ -1,40 +1,47 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
-import { X, Send, Mic, Loader } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
+import { X, Send, Mic, Volume2, Copy, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card } from "@/components/ui/card"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { cn } from "@/lib/utils"
 
 interface Message {
-  type: "user" | "ai"
+  id: string
+  role: "user" | "assistant"
   content: string
+  language: "hi" | "en"
   timestamp: Date
 }
 
-interface AiBandhuDrawerProps {
+interface AIBandhuDrawerProps {
+  role: "retailer" | "wholesaler" | "delivery_partner"
   onClose: () => void
 }
 
-export function AiBandhuDrawer({ onClose }: AiBandhuDrawerProps) {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      type: "ai",
-      content:
-        "नमस्ते! 🙏 मैं AI Bandhu हूँ। आप अपने ऑर्डर के लिए कुछ भी बोलिए या लिखिए। Hello! I'm your smart shopping partner! 🛒",
-      timestamp: new Date(),
-    },
-  ])
+export function AIBandhuDrawer({ role, onClose }: AIBandhuDrawerProps) {
+  const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
-  const [isListening, setIsListening] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [isListening, setIsListening] = useState(false)
+  const [isSpeaking, setIsSpeaking] = useState(false)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const recognitionRef = useRef<any>(null)
 
-  // Initialize speech recognition
+  const roleConfig = {
+    retailer: { title: "बंधु खुदरा | Retail Bandhu", subtitle: "आपका डिजिटल सहायक | Your Digital Assistant" },
+    wholesaler: { title: "बंधु थोक | Wholesale Bandhu", subtitle: "व्यावसायिक विश्लेषण | Business Analytics" },
+    delivery_partner: { title: "बंधु डिलीवरी | Delivery Bandhu", subtitle: "मार्ग अनुकूल | Route Optimizer" },
+  }
+
+  const config = roleConfig[role]
+
+  // Initialize Web Speech API
   useEffect(() => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition
     if (SpeechRecognition) {
       recognitionRef.current = new SpeechRecognition()
       recognitionRef.current.continuous = false
@@ -48,14 +55,84 @@ export function AiBandhuDrawer({ onClose }: AiBandhuDrawerProps) {
         for (let i = event.resultIndex; i < event.results.length; i++) {
           transcript += event.results[i][0].transcript
         }
-        if (event.results[event.results.length - 1].isFinal) {
+        if (event.results[0].isFinal) {
           setInput(transcript)
         }
       }
     }
   }, [])
 
-  const handleVoiceInput = () => {
+  // Auto-scroll to bottom
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollIntoView({ behavior: "smooth" })
+    }
+  }, [messages])
+
+  const handleSendMessage = async () => {
+    if (!input.trim()) return
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: "user",
+      content: input,
+      language: /[\u0900-\u097F]/.test(input) ? "hi" : "en",
+      timestamp: new Date(),
+    }
+
+    setMessages((prev) => [...prev, userMessage])
+    setInput("")
+    setIsLoading(true)
+
+    try {
+      const response = await fetch("/api/ai-bandhu/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: input,
+          role,
+          conversationHistory: messages,
+        }),
+      })
+
+      if (!response.ok) throw new Error("Failed to get response")
+
+      const data = await response.json()
+
+      const assistantMessage: Message = {
+        id: Date.now().toString(),
+        role: "assistant",
+        content: data.message,
+        language: data.language || "en",
+        timestamp: new Date(),
+      }
+
+      setMessages((prev) => [...prev, assistantMessage])
+
+      // Auto-speak response
+      if ("speechSynthesis" in window) {
+        const utterance = new SpeechSynthesisUtterance(data.message)
+        utterance.lang = data.language === "hi" ? "hi-IN" : "en-IN"
+        utterance.onstart = () => setIsSpeaking(true)
+        utterance.onend = () => setIsSpeaking(false)
+        window.speechSynthesis.speak(utterance)
+      }
+    } catch (error) {
+      console.error("Chat error:", error)
+      const errorMessage: Message = {
+        id: Date.now().toString(),
+        role: "assistant",
+        content: "माफी चाहता हूं, कुछ गलत हुआ। Please try again. | I apologize, something went wrong.",
+        language: "en",
+        timestamp: new Date(),
+      }
+      setMessages((prev) => [...prev, errorMessage])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const toggleListening = () => {
     if (recognitionRef.current) {
       if (isListening) {
         recognitionRef.current.stop()
@@ -65,172 +142,129 @@ export function AiBandhuDrawer({ onClose }: AiBandhuDrawerProps) {
     }
   }
 
-  const handleSendMessage = async () => {
-    if (!input.trim()) return
-
-    // Add user message
-    const userMessage: Message = {
-      type: "user",
-      content: input,
-      timestamp: new Date(),
-    }
-    setMessages((prev) => [...prev, userMessage])
-    setInput("")
-    setIsLoading(true)
-
-    try {
-      // Call intent parsing API
-      const response = await fetch("/api/ai-bandhu/parse-intent", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ command: input }),
-      })
-
-      const data = await response.json()
-
-      // Add AI response
-      const aiMessage: Message = {
-        type: "ai",
-        content: data.message || "Sorry, I couldn't process that. Please try again.",
-        timestamp: new Date(),
-      }
-      setMessages((prev) => [...prev, aiMessage])
-
-      // If there's a cart update, dispatch it
-      if (data.cartUpdate) {
-        window.dispatchEvent(new CustomEvent("ai-bandhu-cart-update", { detail: data.cartUpdate }))
-      }
-    } catch (error) {
-      const aiMessage: Message = {
-        type: "ai",
-        content: "क्षमा करें, कुछ गलत हुआ। कृपया फिर से प्रयास करें। Sorry, something went wrong. Please try again.",
-        timestamp: new Date(),
-      }
-      setMessages((prev) => [...prev, aiMessage])
-    } finally {
-      setIsLoading(false)
-    }
+  const copyMessage = (id: string, content: string) => {
+    navigator.clipboard.writeText(content)
+    setCopiedId(id)
+    setTimeout(() => setCopiedId(null), 2000)
   }
 
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollIntoView({ behavior: "smooth" })
-    }
-  }, [messages])
+  const stopSpeaking = () => {
+    window.speechSynthesis.cancel()
+    setIsSpeaking(false)
+  }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/30 cursor-pointer" onClick={onClose} aria-hidden />
-
-      {/* Drawer Panel */}
-      <div className="absolute right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl flex flex-col rounded-l-2xl">
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-end sm:justify-center p-4">
+      <Card className="w-full max-w-md h-[600px] flex flex-col shadow-xl">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-4 flex items-center justify-between rounded-tl-2xl">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">🤖</span>
-            <div>
-              <h3 className="font-bold text-lg">AI Bandhu</h3>
-              <p className="text-xs text-blue-100">Your Smart Partner</p>
-            </div>
+        <div className="bg-gradient-to-r from-blue-600 to-blue-500 text-white p-4 flex items-center justify-between rounded-t-lg">
+          <div>
+            <h2 className="font-bold text-lg">{config.title}</h2>
+            <p className="text-sm opacity-90">{config.subtitle}</p>
           </div>
-          <button onClick={onClose} className="p-1 hover:bg-blue-700 rounded-lg transition-colors" aria-label="Close">
-            <X className="h-5 w-5" />
-          </button>
+          <Button variant="ghost" size="icon" onClick={onClose} className="text-white hover:bg-blue-700">
+            <X className="w-5 h-5" />
+          </Button>
         </div>
 
         {/* Messages */}
         <ScrollArea className="flex-1 p-4 space-y-4">
-          {messages.map((msg, idx) => (
-            <div key={idx} className={`flex ${msg.type === "user" ? "justify-end" : "justify-start"}`}>
-              <Card
-                className={`max-w-xs px-4 py-2 ${
-                  msg.type === "user"
-                    ? "bg-blue-500 text-white rounded-3xl rounded-tr-sm"
-                    : "bg-gray-100 text-gray-900 rounded-3xl rounded-tl-sm"
-                }`}
-              >
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-                <span className="text-xs mt-1 block opacity-70">
-                  {msg.timestamp.toLocaleTimeString("en-US", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </span>
-              </Card>
+          {messages.length === 0 ? (
+            <div className="flex items-center justify-center h-full text-center text-gray-500">
+              <div>
+                <p className="font-semibold mb-2">नमस्ते 👋 | Hello!</p>
+                <p className="text-sm">मुझसे कोई भी सवाल पूछें | Ask me anything!</p>
+              </div>
             </div>
-          ))}
-          {isLoading && (
-            <div className="flex justify-start">
-              <Card className="bg-gray-100 px-4 py-2 rounded-3xl rounded-tl-sm">
-                <div className="flex gap-2 items-center h-6">
-                  <Loader className="h-4 w-4 animate-spin text-blue-500" />
-                  <span className="text-sm text-gray-600">AI Bandhu is thinking...</span>
+          ) : (
+            <>
+              {messages.map((msg) => (
+                <div key={msg.id} className={cn("flex gap-3", msg.role === "user" ? "justify-end" : "justify-start")}>
+                  <div
+                    className={cn(
+                      "max-w-xs px-4 py-2 rounded-lg",
+                      msg.role === "user"
+                        ? "bg-blue-600 text-white rounded-br-none"
+                        : "bg-gray-100 text-gray-900 rounded-bl-none",
+                    )}
+                  >
+                    <p className="text-sm">{msg.content}</p>
+                    {msg.role === "assistant" && (
+                      <div className="flex gap-2 mt-2 pt-2 border-t border-gray-300">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 w-6 p-0"
+                          onClick={() => copyMessage(msg.id, msg.content)}
+                        >
+                          {copiedId === msg.id ? (
+                            <Check className="w-4 h-4 text-green-600" />
+                          ) : (
+                            <Copy className="w-4 h-4" />
+                          )}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </Card>
-            </div>
+              ))}
+              {isLoading && (
+                <div className="flex gap-2">
+                  <div className="bg-gray-100 rounded-lg px-4 py-2">
+                    <div className="flex gap-1">
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-100" />
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-200" />
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div ref={scrollRef} />
+            </>
           )}
-          <div ref={scrollRef} />
         </ScrollArea>
-
-        {/* Footer with tagline */}
-        <div className="border-t p-2 text-center text-xs text-gray-500 bg-gray-50">
-          हर दुकान बने डिजिटल दुकान | Bolo Bandhu, Order Ho Gaya! 🚀
-        </div>
 
         {/* Input Area */}
         <div className="border-t p-4 space-y-3">
-          {/* Waveform indicator */}
-          {isListening && (
-            <div className="flex items-center gap-1 justify-center h-6">
-              {[...Array(5)].map((_, i) => (
-                <div
-                  key={i}
-                  className="w-1 bg-blue-500 rounded-full animate-pulse"
-                  style={{
-                    height: `${10 + i * 8}px`,
-                    animationDelay: `${i * 0.1}s`,
-                  }}
-                />
-              ))}
-              <span className="text-xs text-blue-600 ml-2">Listening...</span>
-            </div>
+          {isSpeaking && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={stopSpeaking}
+              className="w-full text-red-600 border-red-600 bg-transparent"
+            >
+              <Volume2 className="w-4 h-4 mr-2" />
+              रोकें | Stop Speaking
+            </Button>
           )}
-
           <div className="flex gap-2">
             <Input
+              placeholder="संदेश लिखें... | Type message..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === "Enter" && !isLoading) {
-                  handleSendMessage()
-                }
-              }}
-              placeholder="बोलिए या लिखिए... Speak or type..."
-              className="flex-1 rounded-full"
+              onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
               disabled={isLoading}
+              className="flex-1"
             />
             <Button
               size="icon"
-              onClick={handleVoiceInput}
-              variant={isListening ? "default" : "outline"}
-              className="rounded-full"
-              aria-label="Toggle voice input"
+              variant={isListening ? "destructive" : "outline"}
+              onClick={toggleListening}
+              disabled={isLoading}
             >
-              <Mic className="h-4 w-4" />
+              <Mic className="w-4 h-4" />
             </Button>
             <Button
               size="icon"
               onClick={handleSendMessage}
-              disabled={!input.trim() || isLoading}
-              className="rounded-full bg-blue-500 hover:bg-blue-600"
-              aria-label="Send message"
+              disabled={isLoading || !input.trim()}
+              className="bg-blue-600 hover:bg-blue-700"
             >
-              <Send className="h-4 w-4" />
+              <Send className="w-4 h-4" />
             </Button>
           </div>
         </div>
-      </div>
+      </Card>
     </div>
   )
 }

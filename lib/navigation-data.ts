@@ -12,6 +12,7 @@ import {
   Users,
   Calculator,
   FileText,
+  Bot,
 } from "lucide-react"
 import type { SidebarNavItem } from "@/components/navigation/sidebar-nav"
 
@@ -76,6 +77,18 @@ export function getNavigationItems(role: string): SidebarNavItem[] {
       icon: BarChart,
       roles: ["admin"],
     },
+    {
+      title: "AI Bandhu",
+      href: "#",
+      icon: Bot,
+      roles: ["admin"],
+      children: [
+        {
+          title: "Dashboard",
+          href: "/ai-bandhu/retailer",
+        },
+      ],
+    },
   ]
 
   // Retailer-specific navigation items
@@ -110,6 +123,12 @@ export function getNavigationItems(role: string): SidebarNavItem[] {
       icon: Bell,
       roles: ["retailer"],
     },
+    {
+      title: "AI Bandhu 🤖",
+      href: "/ai-bandhu/retailer",
+      icon: Bot,
+      roles: ["retailer"],
+    },
   ]
 
   // Wholesaler-specific navigation items
@@ -130,6 +149,12 @@ export function getNavigationItems(role: string): SidebarNavItem[] {
       title: "Notifications",
       href: "/notifications",
       icon: Bell,
+      roles: ["wholesaler"],
+    },
+    {
+      title: "AI Bandhu 🤖",
+      href: "/ai-bandhu/wholesaler",
+      icon: Bot,
       roles: ["wholesaler"],
     },
   ]
