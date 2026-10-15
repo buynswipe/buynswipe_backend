@@ -1,18 +1,21 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, type ReactNode } from "react"
 import { AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 
 interface ErrorBoundaryProps {
-  error: Error & { digest?: string }
-  reset: () => void
+  error?: Error & { digest?: string }
+  reset?: () => void
+  children?: ReactNode
 }
 
-export function ErrorBoundary({ error, reset }: ErrorBoundaryProps) {
+export function ErrorBoundary({ error, reset, children }: ErrorBoundaryProps) {
   const [errorDetails, setErrorDetails] = useState<string | null>(null)
+
+  if (!error) return <>{children}</>
   const [showDetails, setShowDetails] = useState(false)
 
   useEffect(() => {
@@ -60,7 +63,7 @@ export function ErrorBoundary({ error, reset }: ErrorBoundaryProps) {
           <Button variant="outline" onClick={() => (window.location.href = "/")}>
             Go to Home
           </Button>
-          <Button onClick={reset}>Try again</Button>
+          <Button onClick={reset ?? (() => window.location.reload())}>Try again</Button>
         </CardFooter>
       </Card>
     </div>

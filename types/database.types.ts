@@ -1,3 +1,5 @@
+export type Database = Record<string, unknown>
+
 export type UserRole = "admin" | "retailer" | "wholesaler" | "delivery_partner"
 
 export interface UserProfile {
@@ -32,6 +34,7 @@ export interface Product {
 export interface Order {
   id: string
   created_at: string
+  updated_at?: string
   retailer_id: string
   wholesaler_id: string
   status: "placed" | "confirmed" | "dispatched" | "delivered" | "rejected"
@@ -41,11 +44,16 @@ export interface Order {
   notes?: string
   estimated_delivery?: string
   delivery_partner_id?: string
+  delivery_instructions?: string | null
+  retailer?: UserProfile
+  wholesaler?: UserProfile
+  delivery_partner?: DeliveryPartner
+  order_items?: OrderItem[]
 }
 
 export interface OrderItem {
   id: string
-  order_id: string
+  order_id?: string
   product_id: string
   quantity: number
   price: number

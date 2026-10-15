@@ -4,6 +4,8 @@ import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import type { LucideIcon } from "lucide-react"
 
+export type { SidebarNavItem }
+
 export interface SidebarNavItem {
   title: string
   href: string

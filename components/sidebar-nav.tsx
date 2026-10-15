@@ -36,4 +36,5 @@ export function SidebarNavItem({
 }
 
 // Re-export the SidebarNav component from the navigation folder for backward compatibility
-export { SidebarNav, type } from "@/components/navigation/sidebar-nav"
+export { SidebarNav } from "@/components/navigation/sidebar-nav"
+export type { SidebarNavItem } from "@/components/navigation/sidebar-nav"

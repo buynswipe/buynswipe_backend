@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast"
 import { GooglePhotosPicker } from "@/components/google-photos-picker"
 import { Image, Loader2 } from "lucide-react"
 
+
 const productSchema = z.object({
   name: z.string().min(2, {
     message: "Name must be at least 2 characters.",
@@ -31,7 +32,8 @@ const productSchema = z.object({
   image_url: z.string().optional(),
 })
 
-type ProductFormValues = z.infer<typeof productSchema>
+type ProductFormInput = z.input<typeof productSchema>
+type ProductFormValues = z.output<typeof productSchema>
 
 interface ProductFormProps {
   initialData?: ProductFormValues & { id?: string }
@@ -45,7 +47,7 @@ export function ProductForm({ initialData, onSuccess }: ProductFormProps) {
   const router = useRouter()
   const { toast } = useToast()
 
-  const form = useForm<ProductFormValues>({
+  const form = useForm<ProductFormInput, unknown, ProductFormValues>({
     resolver: zodResolver(productSchema),
     defaultValues: initialData || {
       name: "",
