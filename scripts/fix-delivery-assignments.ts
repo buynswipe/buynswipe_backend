@@ -1,19 +1,14 @@
 import { createClient } from "@supabase/supabase-js"
-
-// Initialize Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-  auth: {
-    persistSession: false,
-  },
-})
+import { getSupabaseServiceConfig } from "@/lib/supabase-config"
 
 async function fixDeliveryAssignments() {
   console.log("Starting delivery assignment fix...")
 
   try {
+    const { url, serviceRoleKey } = getSupabaseServiceConfig()
+    const supabase = createClient(url, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    })
     // 1. Get all orders with delivery partner assignments
     const { data: orders, error: ordersError } = await supabase
       .from("orders")

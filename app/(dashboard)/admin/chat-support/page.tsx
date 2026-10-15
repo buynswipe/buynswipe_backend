@@ -68,9 +68,9 @@ export default async function ChatSupportPage() {
   const escalatedConversationsData =
     escalatedConversations?.map((conv) => ({
       id: conv.id,
-      user: conv.profiles?.business_name || "Unknown",
-      userRole: conv.profiles?.role || "Unknown",
-      email: conv.profiles?.email || "Unknown",
+      user: conv.profiles?.[0]?.business_name || "Unknown",
+      userRole: conv.profiles?.[0]?.role || "Unknown",
+      email: conv.profiles?.[0]?.email || "Unknown",
       title: conv.title,
       language: getLanguageName(conv.language),
       updatedAt: formatDistanceToNow(new Date(conv.updated_at), { addSuffix: true }),
@@ -79,12 +79,12 @@ export default async function ChatSupportPage() {
   const feedbackData =
     feedback?.map((item) => ({
       id: item.id,
-      user: item.profiles?.business_name || "Unknown",
-      userRole: item.profiles?.role || "Unknown",
+      user: item.profiles?.[0]?.business_name || "Unknown",
+      userRole: item.profiles?.[0]?.role || "Unknown",
       rating: item.rating === 1 ? "Positive" : "Negative",
       comment: item.comment || "No comment",
-      message: item.messages?.content || "Unknown message",
-      conversationId: item.messages?.conversation_id || "Unknown",
+      message: item.messages?.[0]?.content || "Unknown message",
+      conversationId: item.messages?.[0]?.conversation_id || "Unknown",
       createdAt: formatDistanceToNow(new Date(item.created_at), { addSuffix: true }),
     })) || []
 

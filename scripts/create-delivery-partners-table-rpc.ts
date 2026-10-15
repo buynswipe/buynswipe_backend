@@ -1,14 +1,14 @@
 import { createClient } from "@supabase/supabase-js"
 import type { Database } from "@/types/database.types"
-
-// Create a Supabase client
-const supabaseAdmin = createClient<Database>(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.SUPABASE_SERVICE_ROLE_KEY || "",
-)
+import { getSupabaseServiceConfig } from "@/lib/supabase-config"
 
 export async function createDeliveryPartnersTableRPC() {
   try {
+    const { url, serviceRoleKey } = getSupabaseServiceConfig()
+    const supabaseAdmin = createClient<Database>(url, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    })
+
     // Create the RPC function to create the delivery_partners table
     const { error } = await supabaseAdmin.rpc("create_function", {
       function_name: "create_delivery_partners_table",

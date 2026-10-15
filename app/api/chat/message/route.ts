@@ -99,7 +99,7 @@ Please respond in ${getLanguageName(conversation.language)} language.`
       model: openai("gpt-4o"),
       messages: [{ role: "system", content: systemPrompt }, ...formattedHistory],
       temperature: 0.7,
-      max_tokens: 500,
+      maxOutputTokens: 500,
     })
 
     // Save the AI response

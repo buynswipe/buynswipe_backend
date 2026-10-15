@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
 import { v4 as uuidv4 } from "uuid"
+import { getSupabaseServiceConfig } from "@/lib/supabase-config"
 
 // Types
 export type NotificationType = "success" | "info" | "warning" | "error"
@@ -17,18 +18,20 @@ export interface NotificationData {
   data?: any
 }
 
-// Create a Supabase client
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL || "", process.env.SUPABASE_SERVICE_ROLE_KEY || "", {
-  auth: {
-    persistSession: false,
-  },
-})
+function getNotificationClient() {
+  const { url, serviceRoleKey } = getSupabaseServiceConfig()
+  return createClient(url, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })
+}
 
 /**
  * Creates a notification in the database
  */
 export async function createServerNotification(data: NotificationData) {
   try {
+    const supabase = getNotificationClient()
+
     // Validate required fields
     if (!data.user_id) {
       console.error("Error creating notification: user_id is required")

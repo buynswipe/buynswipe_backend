@@ -1,20 +1,15 @@
 import { createClient } from "@supabase/supabase-js"
 import fs from "fs"
 import path from "path"
-
-// Initialize Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-  },
-})
+import { getSupabaseServiceConfig } from "@/lib/supabase-config"
 
 async function updateProfilesRoleConstraint() {
   try {
+    const { url, serviceRoleKey } = getSupabaseServiceConfig()
+    const supabase = createClient(url, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    })
+
     console.log("Reading SQL migration file...")
     const sqlFilePath = path.join(process.cwd(), "supabase/migrations/update-profiles-role-constraint.sql")
     const sqlContent = fs.readFileSync(sqlFilePath, "utf8")

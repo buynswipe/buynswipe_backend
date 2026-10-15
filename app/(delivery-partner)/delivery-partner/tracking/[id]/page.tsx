@@ -100,7 +100,13 @@ export default async function DeliveryTrackingPage({ params }: DeliveryTrackingP
     console.log(`[DeliveryTrackingPage] User is a delivery partner, proceeding with order lookup`)
 
     // Use the direct order service to find the order with admin privileges
-    const { order, source, error: lookupError, _debug } = await directOrderService.findOrderDirect(id)
+    const trackingResult = await directOrderService.findOrderDirect(id)
+    const { order, source, error: lookupError, _debug } = trackingResult as {
+      order: any
+      source: string | null
+      error?: string
+      _debug?: boolean
+    }
 
     // If we couldn't find the order
     if (!order) {

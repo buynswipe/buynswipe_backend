@@ -4,13 +4,14 @@
 import { createClient } from "@supabase/supabase-js"
 import { v4 as uuidv4 } from "uuid"
 import type { QueueMessage, QueueMessageType } from "./types"
+import { getSupabaseServiceConfig } from "@/lib/supabase-config"
 
-// Create a Supabase client for queue operations
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL || "", process.env.SUPABASE_SERVICE_ROLE_KEY || "", {
-  auth: {
-    persistSession: false,
-  },
-})
+function getQueueClient() {
+  const { url, serviceRoleKey } = getSupabaseServiceConfig()
+  return createClient(url, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })
+}
 
 /**
  * Queue service for handling asynchronous operations
@@ -21,6 +22,7 @@ export class QueueService {
    */
   static async initialize(): Promise<{ success: boolean; error?: string }> {
     try {
+      const supabase = getQueueClient()
       // Check if the message_queue table exists
       const { error: checkError } = await supabase.from("message_queue").select("id").limit(1).single()
 
@@ -30,8 +32,8 @@ export class QueueService {
       }
 
       // Create the message_queue table
-      const { error } = await supabase.sql`
-        CREATE TABLE IF NOT EXISTS public.message_queue (
+      const { error } = await supabase.rpc("exec_raw_sql", {
+        sql_query: `CREATE TABLE IF NOT EXISTS public.message_queue (
           id UUID PRIMARY KEY,
           type TEXT NOT NULL,
           payload JSONB NOT NULL,
@@ -44,11 +46,10 @@ export class QueueService {
           locked_until TIMESTAMP WITH TIME ZONE,
           locked_by TEXT
         );
-
         CREATE INDEX IF NOT EXISTS message_queue_status_idx ON public.message_queue(status);
         CREATE INDEX IF NOT EXISTS message_queue_type_idx ON public.message_queue(type);
-        CREATE INDEX IF NOT EXISTS message_queue_created_at_idx ON public.message_queue(created_at);
-      `
+        CREATE INDEX IF NOT EXISTS message_queue_created_at_idx ON public.message_queue(created_at);`,
+      })
 
       if (error) {
         console.error("Error creating message_queue table:", error)
@@ -56,15 +57,14 @@ export class QueueService {
       }
 
       // Create the processed_messages table for deduplication
-      const { error: dedupError } = await supabase.sql`
-        CREATE TABLE IF NOT EXISTS public.processed_messages (
+      const { error: dedupError } = await supabase.rpc("exec_raw_sql", {
+        sql_query: `CREATE TABLE IF NOT EXISTS public.processed_messages (
           deduplication_id TEXT PRIMARY KEY,
           message_id UUID NOT NULL,
           created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
         );
-
-        CREATE INDEX IF NOT EXISTS processed_messages_created_at_idx ON public.processed_messages(created_at);
-      `
+        CREATE INDEX IF NOT EXISTS processed_messages_created_at_idx ON public.processed_messages(created_at);`,
+      })
 
       if (dedupError) {
         console.error("Error creating processed_messages table:", dedupError)
@@ -92,6 +92,7 @@ export class QueueService {
     } = {},
   ): Promise<{ success: boolean; messageId?: string; error?: string }> {
     try {
+      const supabase = getQueueClient()
       const { priority = "normal", deduplicationId, maxRetries = 3, producer = "system" } = options
 
       // Check for deduplication if ID is provided
@@ -175,6 +176,8 @@ export class QueueService {
     } = options
 
     try {
+      const supabase = getQueueClient()
+
       // Begin a transaction
       const { error: txError } = await supabase.rpc("begin_transaction")
       if (txError) {
@@ -250,7 +253,9 @@ export class QueueService {
    * Process a single message
    */
   private static async processMessage(message: any): Promise<{ success: boolean; error?: string }> {
+    const supabase = getQueueClient()
     try {
+
       // Begin processing
       const { error: updateError } = await supabase
         .from("message_queue")
@@ -363,6 +368,7 @@ export class QueueService {
    */
   private static async handleNotificationCreate(payload: any): Promise<{ success: boolean; error?: string }> {
     try {
+      const supabase = getQueueClient()
       const { userId, title, message, type, entityType, entityId, actionUrl, data } = payload
 
       // Create the notification
@@ -586,9 +592,9 @@ export class QueueService {
     } = {},
   ): Promise<{ success: boolean; deletedCount: number; error?: string }> {
     try {
-      const { olderThan = 30 } = options
+      const supabase = getQueueClient()
       const cutoffDate = new Date()
-      cutoffDate.setDate(cutoffDate.getDate() - olderThan)
+      cutoffDate.setDate(cutoffDate.getDate() - (options.olderThan ?? 30))
 
       const { data, error } = await supabase
         .from("processed_messages")
