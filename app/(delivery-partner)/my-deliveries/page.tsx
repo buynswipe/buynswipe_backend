@@ -136,7 +136,6 @@ export default async function MyDeliveriesPage() {
             { title: "Delivery Partner", href: "/delivery-partner/dashboard" },
             { title: "My Deliveries", href: "/delivery-partner/my-deliveries" },
           ]}
-          className="mb-4"
         />
 
         <div>

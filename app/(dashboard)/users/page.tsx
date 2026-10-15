@@ -203,7 +203,6 @@ export default function UsersPage() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full md:w-[300px]"
-            prefix={<Search className="h-4 w-4 text-muted-foreground" />}
           />
         </div>
         <div className="flex items-center gap-4 w-full md:w-auto">

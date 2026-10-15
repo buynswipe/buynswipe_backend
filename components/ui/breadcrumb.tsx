@@ -8,11 +8,12 @@ interface BreadcrumbProps {
     title: string
     href: string
   }[]
+  className?: string
 }
 
-export function Breadcrumb({ segments }: BreadcrumbProps) {
+export function Breadcrumb({ segments, className }: BreadcrumbProps) {
   return (
-    <nav className="flex items-center text-sm text-muted-foreground">
+    <nav className={className ? `flex items-center text-sm text-muted-foreground ${className}` : "flex items-center text-sm text-muted-foreground"}>
       {segments.map((segment, index) => (
         <div key={segment.href} className="flex items-center">
           {index > 0 && <ChevronRight className="mx-1 h-4 w-4" />}

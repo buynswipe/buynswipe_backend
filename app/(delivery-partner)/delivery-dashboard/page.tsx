@@ -13,8 +13,8 @@ import { Loader2 } from "lucide-react"
 
 export default function DeliveryPartnerDashboardPage() {
   const router = useRouter()
-  const [activeDeliveries, setActiveDeliveries] = useState([])
-  const [completedDeliveries, setCompletedDeliveries] = useState([])
+  const [activeDeliveries, setActiveDeliveries] = useState<Record<string, unknown>[]>([])
+  const [completedDeliveries, setCompletedDeliveries] = useState<Record<string, unknown>[]>([])
   const [totalEarnings, setTotalEarnings] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

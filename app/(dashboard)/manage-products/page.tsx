@@ -21,13 +21,23 @@ interface Product {
   image_url: string | null
 }
 
+type SelectedProduct = {
+  id: string
+  name: string
+  description: string
+  price: number
+  category: string
+  stock: number
+  image_url: string
+}
+
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  const [selectedProduct, setSelectedProduct] = useState<SelectedProduct | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
@@ -78,7 +88,15 @@ export default function ProductsPage() {
   }
 
   const handleDelete = (product: Product) => {
-    setSelectedProduct(product)
+    setSelectedProduct({
+      id: product.id,
+      name: product.name,
+      description: product.description || "",
+      price: product.price,
+      category: product.category,
+      stock: product.stock_quantity,
+      image_url: product.image_url || "",
+    })
     setIsDeleteDialogOpen(true)
   }
 
