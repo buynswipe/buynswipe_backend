@@ -6,7 +6,9 @@
     "build": "next build",
     "clean": "bash scripts/clean-all.sh",
     "dev": "next dev",
-    "lint": "next lint",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "validate": "pnpm typecheck && pnpm lint && pnpm build",
     "start": "next start"
   },
   "dependencies": {

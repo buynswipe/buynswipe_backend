@@ -5,11 +5,9 @@ export const dynamic = "force-dynamic"
 
 export async function GET(request: Request) {
   try {
-    // Check if request has a valid cron API key
-    const { searchParams } = new URL(request.url)
-    const apiKey = searchParams.get("apiKey")
-
-    if (apiKey !== process.env.CRON_API_KEY) {
+    const configuredKey = process.env.CRON_API_KEY
+    const authorization = request.headers.get("authorization")
+    if (!configuredKey || authorization !== `Bearer ${configuredKey}`) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 

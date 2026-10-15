@@ -16,18 +16,19 @@ export async function POST(request: NextRequest) {
     // Get authenticated user
     const supabase = createRouteHandlerClient({ cookies })
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+    } = await supabase.auth.getUser()
 
-    if (!session) {
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Parse request body
-    const { orderId, amount } = await request.json()
+    const body = await request.json()
+    const orderId = typeof body.orderId === "string" ? body.orderId : ""
+    const requestedAmount = Number(body.amount)
 
-    if (!orderId || !amount) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+    if (!orderId || !Number.isFinite(requestedAmount) || requestedAmount <= 0) {
+      return NextResponse.json({ error: "A valid orderId and positive amount are required" }, { status: 400 })
     }
 
     // Get order details
@@ -45,8 +46,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user is the retailer for this order
-    if (order.retailer_id !== session.user.id) {
-      return NextResponse.json({ error: "Unauthorized - You are not the retailer for this order" }, { status: 403 })
+    if (order.retailer_id !== user.id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
+    const orderAmount = Number(order.total_amount)
+    if (!Number.isFinite(orderAmount) || orderAmount <= 0 || requestedAmount !== orderAmount) {
+      return NextResponse.json({ error: "Payment amount does not match the order" }, { status: 400 })
     }
 
     // Check if order is already paid
@@ -68,13 +74,16 @@ export async function POST(request: NextRequest) {
       udf1: orderId, // Store order ID for reference
     })
 
-    // Update order with transaction ID for reference
-    await supabase
+    const { error: updateError } = await supabase
       .from("orders")
-      .update({
-        payment_reference: txnId,
-      })
+      .update({ payment_reference: txnId })
       .eq("id", orderId)
+      .eq("payment_status", "pending")
+
+    if (updateError) {
+      console.error("PayU payment reference update failed", updateError)
+      return NextResponse.json({ error: "Unable to initialize payment" }, { status: 502 })
+    }
 
     return NextResponse.json({
       success: true,

@@ -12,9 +12,8 @@ export async function POST(request: NextRequest) {
     params[key] = value.toString()
   }
 
-  // Verify hash to ensure the response is from PayU
   const isValidHash = verifyHash(params)
-  if (!isValidHash) {
+  if (!isValidHash || params.status !== "success") {
     return NextResponse.redirect(new URL(`/payment-error?error=Invalid response hash`, request.url))
   }
 
@@ -61,6 +60,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.redirect(new URL(`/orders/${orderId}?payment=success`, request.url))
   } catch (error: any) {
     console.error("Error processing payment success:", error)
-    return NextResponse.redirect(new URL(`/payment-error?error=${encodeURIComponent(error.message)}`, request.url))
+    return NextResponse.redirect(new URL("/payment-error?error=Unable%20to%20process%20payment", request.url))
   }
 }

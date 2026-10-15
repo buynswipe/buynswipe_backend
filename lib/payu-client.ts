@@ -46,7 +46,10 @@ export function verifyHash(params: Record<string, string>): boolean {
   const hashString = `${merchantSalt}|${params.status}|||||||||${params.udf5}|||||${params.email}|${params.firstname}|${params.productinfo}|${params.amount}|${params.txnid}|${PAYU_CONFIG.merchantKey}`
 
   const calculatedHash = crypto.createHash("sha512").update(hashString).digest("hex")
-  return calculatedHash === params.hash
+  const receivedHash = params.hash || ""
+  const expected = Buffer.from(calculatedHash, "utf8")
+  const received = Buffer.from(receivedHash, "utf8")
+  return expected.length === received.length && crypto.timingSafeEqual(expected, received)
 }
 
 // Create PayU payment request
@@ -163,22 +166,7 @@ export async function generateUpiLink(paymentData: {
     }
   } catch (error) {
     console.error("Error in PayU UPI API call:", error)
-
-    // Fallback: Generate a basic UPI URI for development/testing
-    // This helps when PayU API is not accessible
-    const upiUri = `upi://pay?pa=test@payu&pn=RetailBandhu&am=${paymentData.amount}&tr=${paymentData.txnId}&tn=Order%20Payment`
-
-    // Generate a QR code using a public API
-    const qrCode = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(upiUri)}`
-
-    console.log("Using fallback UPI payment data")
-
-    return {
-      upiUri,
-      qrCode,
-      txnId: params.txnid,
-      timeout: PAYU_CONFIG.upiTimeout,
-    }
+    throw new Error("Unable to initialize UPI payment")
   }
 }
 
